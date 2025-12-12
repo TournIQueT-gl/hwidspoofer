@@ -81,8 +81,20 @@ static int reg_write_binary(HKEY root, const char* subkey, const char* name, con
 int hwid_backup_registry(void)
 {
     if (g_backup.has_backup)
-        return 0;  // 已有备份
+        return 0;  // 内存中已有备份
     
+    // 检查是否已有备份文件（防止覆盖真实值）
+    FILE* existing = fopen(BACKUP_FILE, "rb");
+    if (existing) {
+        // 已有备份文件，加载它而不是创建新的
+        fclose(existing);
+        if (hwid_load_backup(BACKUP_FILE) == 0) {
+            printf("  Loaded existing backup (preserving original values)\n");
+            return 0;
+        }
+    }
+    
+    // 没有备份文件，创建新备份
     // 备份 MachineGuid
     reg_read_string(HKEY_LOCAL_MACHINE, REG_MACHINE_GUID, "MachineGuid",
                     g_backup.machine_guid, sizeof(g_backup.machine_guid));
@@ -97,7 +109,7 @@ int hwid_backup_registry(void)
     
     g_backup.has_backup = TRUE;
     
-    printf("  Registry values backed up\n");
+    printf("  Registry values backed up (new backup created)\n");
     return 0;
 }
 

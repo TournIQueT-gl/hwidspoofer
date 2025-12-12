@@ -204,19 +204,22 @@ void test_computer_name(void) {
     }
 }
 
+// SMBIOS 签名常量
+#define RSMB_SIGNATURE 0x52534D42  // 'RSMB' = R(0x52) S(0x53) M(0x4D) B(0x42)
+
 // 测试8: GetSystemFirmwareTable - 获取SMBIOS数据
 void test_smbios(void) {
     printf("\n[TEST 8] GetSystemFirmwareTable - SMBIOS Data\n");
     printf("  ----------------------------------------\n");
     
-    DWORD size = GetSystemFirmwareTable('RSMB', 0, NULL, 0);
+    DWORD size = GetSystemFirmwareTable(RSMB_SIGNATURE, 0, NULL, 0);
     if (size == 0) {
         printf("  [ERROR] GetSystemFirmwareTable size failed: %d\n", GetLastError());
         return;
     }
     
     BYTE* buffer = (BYTE*)malloc(size);
-    if (GetSystemFirmwareTable('RSMB', 0, buffer, size) == 0) {
+    if (GetSystemFirmwareTable(RSMB_SIGNATURE, 0, buffer, size) == 0) {
         printf("  [ERROR] GetSystemFirmwareTable failed: %d\n", GetLastError());
         free(buffer);
         return;

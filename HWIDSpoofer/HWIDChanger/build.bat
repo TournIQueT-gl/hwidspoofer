@@ -19,7 +19,7 @@ echo.
 echo [1/2] Building HWIDChanger.exe ...
 "%GCC%" -Os -s -static -ffunction-sections -fdata-sections "-Wl,--gc-sections" ^
     -o "%BIN%\HWIDChanger.exe" ^
-    main.c hwid_core.c hwid_hooks.c registry_spoof.c ^
+    main.c hwid_core.c hwid_hooks.c registry_spoof.c appinit_spoof.c ^
     -liphlpapi -ladvapi32
 
 if errorlevel 1 (
@@ -42,16 +42,29 @@ if errorlevel 1 (
 echo [OK] HWIDChanger.dll
 
 echo.
-echo [3/3] Building HWIDTest.exe (API verification)...
+echo [3/4] Building HWIDTest.exe (API verification)...
 "%GCC%" -Os -s -static -ffunction-sections -fdata-sections "-Wl,--gc-sections" ^
     -o "%BIN%\HWIDTest.exe" ^
     hwid_test.c ^
     -liphlpapi -ladvapi32
 
 if errorlevel 1 (
-    echo [WARN] Test program compilation failed
+    echo [WARN] HWIDTest compilation failed
 ) else (
     echo [OK] HWIDTest.exe
+)
+
+echo.
+echo [4/4] Building HWIDSelfTest.exe (complete self-test)...
+"%GCC%" -Os -s -static -ffunction-sections -fdata-sections "-Wl,--gc-sections" ^
+    -o "%BIN%\HWIDSelfTest.exe" ^
+    hwid_selftest.c hwid_core.c hwid_hooks.c registry_spoof.c appinit_spoof.c ^
+    -liphlpapi -ladvapi32
+
+if errorlevel 1 (
+    echo [WARN] SelfTest compilation failed
+) else (
+    echo [OK] HWIDSelfTest.exe
 )
 
 echo.

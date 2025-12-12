@@ -122,6 +122,12 @@ int hwid_restore_registry(void);
 int hwid_save_backup(const char* path);
 int hwid_load_backup(const char* path);
 
+// AppInit_DLLs 全局注入（用户态全系统伪装）
+int hwid_enable_appinit_injection(const char* dll_path);
+int hwid_disable_appinit_injection(void);
+int hwid_is_appinit_enabled(void);
+int hwid_get_appinit_dlls(char* buf, int len);
+
 // 工具函数
 void hwid_random_serial(char* buf, int len);
 void hwid_random_uuid(char* buf);

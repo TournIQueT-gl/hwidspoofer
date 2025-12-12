@@ -206,6 +206,40 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
                 printf("Failed to restore registry\n");
             }
         }
+        else if (strcmp(argv[i], "--enable-appinit") == 0) {
+            char dll_path[MAX_PATH];
+            GetModuleFileNameA(NULL, dll_path, MAX_PATH);
+            char* p = strrchr(dll_path, '\\');
+            if (p) strcpy(p + 1, "HWIDChanger.dll");
+            if (hwid_enable_appinit_injection(dll_path) == 0) {
+                printf("AppInit injection enabled (affects new processes)\n");
+            } else {
+                printf("Failed to enable AppInit injection\n");
+                return 1;
+            }
+        }
+        else if (strcmp(argv[i], "--disable-appinit") == 0) {
+            if (hwid_disable_appinit_injection() == 0) {
+                printf("AppInit injection disabled\n");
+            } else {
+                printf("Failed to disable AppInit injection\n");
+            }
+        }
+        else if (strcmp(argv[i], "--full-usermode") == 0) {
+            // 完整用户态伪装：注册表 + AppInit
+            printf("Applying full usermode spoof...\n");
+            if (hwid_apply_registry_global(config) == 0) {
+                printf("  Registry: OK\n");
+            }
+            char dll_path[MAX_PATH];
+            GetModuleFileNameA(NULL, dll_path, MAX_PATH);
+            char* p = strrchr(dll_path, '\\');
+            if (p) strcpy(p + 1, "HWIDChanger.dll");
+            if (hwid_enable_appinit_injection(dll_path) == 0) {
+                printf("  AppInit: OK\n");
+            }
+            printf("Full usermode spoof enabled!\n");
+        }
         else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             printf("HWID Changer v%s\n\n", HWID_VERSION);
             printf("Usage: %s [options]\n\n", argv[0]);
@@ -220,10 +254,14 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             printf("  -q, --quiet            Quiet mode\n");
             printf("  -h, --help             Show this help\n");
             printf("\nGlobal Mode (affects ALL programs):\n");
-            printf("  --enable-global        Enable global interception mode\n");
-            printf("  --disable-global       Disable global interception mode\n");
+            printf("  --enable-global        Enable global interception (kernel driver)\n");
+            printf("  --disable-global       Disable global interception\n");
             printf("  --registry-global      Modify system registry (permanent)\n");
             printf("  --restore-registry     Restore original registry values\n");
+            printf("\nUsermode Full System Spoof:\n");
+            printf("  --full-usermode        Apply registry + AppInit (recommended)\n");
+            printf("  --enable-appinit       Enable AppInit DLL injection\n");
+            printf("  --disable-appinit      Disable AppInit DLL injection\n");
             return 0;
         }
     }
