@@ -1,0 +1,8 @@
+E:\Projects\CHANGE\HWIDSpoofer\HWIDChangerGUI\obj\Release\HWIDChangerGUI.csprojResolveAssemblyReference.cache
+E:\Projects\CHANGE\HWIDSpoofer\HWIDChangerGUI\obj\Release\HWIDChangerGUI.MainForm.resources
+E:\Projects\CHANGE\HWIDSpoofer\HWIDChangerGUI\obj\Release\HWIDChangerGUI.csproj.GenerateResource.Cache
+E:\Projects\CHANGE\HWIDSpoofer\HWIDChangerGUI\bin\Release\HWIDChangerGUI.exe.config
+E:\Projects\CHANGE\HWIDSpoofer\HWIDChangerGUI\bin\Release\HWIDChangerGUI.exe
+E:\Projects\CHANGE\HWIDSpoofer\HWIDChangerGUI\bin\Release\HWIDChangerGUI.pdb
+E:\Projects\CHANGE\HWIDSpoofer\HWIDChangerGUI\obj\Release\HWIDChangerGUI.exe
+E:\Projects\CHANGE\HWIDSpoofer\HWIDChangerGUI\obj\Release\HWIDChangerGUI.pdb
