@@ -1,0 +1,64 @@
+
+========================================
+  HWID Test Program - API Verification
+========================================
+  This program calls system APIs to
+  retrieve hardware information.
+  Use with HWIDChanger to verify spoof.
+========================================
+
+[TEST 1] GetVolumeInformationW - Volume Serial
+  ----------------------------------------
+  Volume Serial: 0x0EAEEC0D
+  Volume Name:     File System:   NTFS
+
+[TEST 2] DeviceIoControl - Disk Serial (STORAGE_QUERY_PROPERTY)
+  ----------------------------------------
+  Disk Serial:   5CDF_B814_511D_1F04.
+  Disk Product:  UMIS RPEYJ1T24MK
+  Disk Vendor:   NVMe    
+
+[TEST 3] GetAdaptersInfo - MAC Address
+  ----------------------------------------
+  Adapter 0:     Intel(R) Ethernet Connection (22) I219-LM
+  MAC Address:   E0:BE:03:9E:DC:91
+  Adapter 1:     Bluetooth Device (Personal Area Network)
+  MAC Address:   C0:35:32:46:6E:D4
+  Adapter 3:     Realtek RTL8852BE WiFi 6 802.11ax PCIe Adapter
+  MAC Address:   C0:35:32:46:6E:D3
+  Adapter 4:     Microsoft Wi-Fi Direct Virtual Adapter
+  MAC Address:   C2:35:32:46:6E:D3
+  Adapter 5:     Microsoft Wi-Fi Direct Virtual Adapter #2
+  MAC Address:   C6:35:32:46:6E:D3
+
+[TEST 4] GetAdaptersAddresses - Network Adapters
+  ----------------------------------------
+  Adapter 1:       MAC Address:   E0:BE:03:9E:DC:91
+  Adapter 2:       MAC Address:   C2:35:32:46:6E:D3
+  Adapter 3:       MAC Address:   C6:35:32:46:6E:D3
+  Adapter 4:     WLAN
+  MAC Address:   C0:35:32:46:6E:D3
+  Adapter 5:       MAC Address:   C0:35:32:46:6E:D4
+
+[TEST 5] RegQueryValueExW - MachineGuid
+  ----------------------------------------
+  MachineGuid:   A6873900-AD24-4B8C-B0BB-84DEAEEF077F
+
+[TEST 6] RegQueryValueExW - ProductId
+  ----------------------------------------
+  ProductId:     36724-493-9817370-99098
+
+[TEST 7] GetComputerNameW - Computer Name
+  ----------------------------------------
+  ComputerName:  PC-FF2C8978
+
+[TEST 8] GetSystemFirmwareTable - SMBIOS Data
+  ----------------------------------------
+  SMBIOS Size:   6545 bytes
+  System Serial: GM0MC77D
+  Board Serial:                          
+
+========================================
+  All tests completed!
+========================================
+

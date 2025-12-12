@@ -1,0 +1,10 @@
+Config loaded from _test_config.cfg
+  Registry values backed up
+  Applying global registry spoof...
+    [OK] MachineGuid modified
+    [OK] ProductId modified
+    [OK] ComputerName modified
+    [OK] HwProfileGuid modified
+    [OK] Modified 2 network adapter(s)
+  Applied 5 registry modifications
+Registry modified

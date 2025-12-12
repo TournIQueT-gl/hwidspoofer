@@ -1,0 +1,44 @@
+{
+  "_comment": "HWID Spoofer Configuration File",
+  "version": "1.0",
+  "_note": "所有值都可以留空，留空时会自动生成随机值",
+
+  "spoof_disk": true,
+  "spoof_cpu": true,
+  "spoof_baseboard": true,
+  "spoof_bios": true,
+  "spoof_system": true,
+  "spoof_network": true,
+  "spoof_smbios": true,
+  "spoof_registry": true,
+  "spoof_wmi": true,
+
+  "disk_serial": "WD-WMC4N0123456",
+  "disk_product_id": "WDC WD10EZEX-00WN4A0",
+  "disk_vendor_id": "WDC",
+  "disk_revision": "1.0",
+  "volume_serial": 305419896,
+
+  "processor_id": "BFEBFBFF000906ED",
+  "cpu_serial": "",
+  "cpu_brand": "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz",
+
+  "baseboard_serial": "MB12345678901",
+  "baseboard_product": "B460M-PLUS",
+  "baseboard_manufacturer": "ASUSTeK COMPUTER INC.",
+  "baseboard_version": "Rev 1.xx",
+
+  "bios_serial": "BIOS123456789",
+  "bios_version": "American Megatrends Inc. 2.17.1246",
+  "bios_manufacturer": "American Megatrends Inc.",
+  "bios_release_date": "12/01/2023",
+  "smbios_version": "2.8",
+
+  "system_uuid": "12345678-1234-4321-ABCD-123456789ABC",
+  "machine_guid": "87654321-4321-1234-DCBA-CBA987654321",
+  "product_id": "00330-80000-00000-AA123",
+  "computer_name": "DESKTOP-ABC1234",
+
+  "mac_address": "00:1A:2B:3C:4D:5E"
+}
+

@@ -1,0 +1,3 @@
+  Loaded backup from file
+  Registry values restored
+Registry restored
