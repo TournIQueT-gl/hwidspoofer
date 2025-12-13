@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HWID Spoofer - Hardware Fingerprint Testing Tool</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #09090b;
+            color: #a1a1aa;
+            min-height: 100vh;
+        }
+
+        /* Lang Toggle */
+        .lang-toggle {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 100;
+            display: flex;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .lang-btn {
+            padding: 8px 14px;
+            font-size: 0.8rem;
+            font-family: inherit;
+            background: none;
+            border: none;
+            color: #52525b;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .lang-btn.active {
+            background: rgba(56, 189, 168, 0.1);
+            color: #38bda8;
+        }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 40px 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(56, 189, 168, 0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 960px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #f87171;
+            margin-bottom: 32px;
+        }
+
+        .badge-dot {
+            width: 6px;
+            height: 6px;
+            background: #ef4444;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 6vw, 3.5rem);
+            font-weight: 600;
+            color: #fafafa;
+            margin-bottom: 24px;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+        }
+
+        .tagline {
+            font-size: 1.15rem;
+            font-weight: 300;
+            color: #71717a;
+            margin-bottom: 20px;
+            letter-spacing: -0.01em;
+        }
+
+        .desc {
+            font-size: 1.05rem;
+            line-height: 1.8;
+            color: #71717a;
+            margin-bottom: 40px;
+            max-width: 720px;
+        }
+
+        .desc strong {
+            color: #a1a1aa;
+            font-weight: 500;
+        }
+
+        .cta-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 48px;
+        }
+
+        .cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #38bda8 0%, #2d9d8a 100%);
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 500;
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 32px rgba(56, 189, 168, 0.25);
+        }
+
+        .cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(56, 189, 168, 0.35);
+        }
+
+        .cta-note {
+            font-size: 0.8rem;
+            color: #52525b;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            padding-top: 48px;
+            border-top: 1px solid rgba(255,255,255,0.04);
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #fafafa;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #52525b;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        /* Sections */
+        .section {
+            padding: 100px 24px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .section-label {
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #38bda8;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 16px;
+        }
+
+        .section h2 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: #fafafa;
+            margin-bottom: 16px;
+            letter-spacing: -0.02em;
+        }
+
+        .section-intro {
+            font-size: 0.95rem;
+            line-height: 1.7;
+            color: #71717a;
+            margin-bottom: 32px;
+        }
+
+        /* Architecture */
+        .arch-diagram {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.04);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+
+        .arch-layer {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+
+        .arch-layer:last-child {
+            border-bottom: none;
+        }
+
+        .arch-icon {
+            width: 40px;
+            height: 40px;
+            background: rgba(56, 189, 168, 0.1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .arch-content {
+            flex: 1;
+        }
+
+        .arch-title {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #e4e4e7;
+            margin-bottom: 2px;
+        }
+
+        .arch-desc {
+            font-size: 0.8rem;
+            color: #52525b;
+        }
+
+        .arch-apis {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .arch-api {
+            padding: 4px 8px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-family: 'SF Mono', Menlo, monospace;
+            color: #71717a;
+        }
+
+        /* Use Cases */
+        .use-cases {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .use-case {
+            padding: 24px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.04);
+            border-radius: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .use-case:hover {
+            border-color: rgba(56, 189, 168, 0.2);
+            background: rgba(56, 189, 168, 0.02);
+        }
+
+        .use-case-icon {
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+        }
+
+        .use-case-title {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #e4e4e7;
+            margin-bottom: 8px;
+        }
+
+        .use-case p {
+            font-size: 0.85rem;
+            color: #71717a;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 640px) {
+            .use-cases { grid-template-columns: 1fr; }
+        }
+
+        /* Footer */
+        .footer {
+            padding: 48px 24px;
+            text-align: center;
+            border-top: 1px solid rgba(255,255,255,0.04);
+        }
+
+        .footer p {
+            font-size: 0.8rem;
+            color: #3f3f46;
+        }
+
+        .footer-note {
+            margin-top: 12px;
+            font-size: 0.75rem;
+            color: #52525b;
+        }
+
+        @media (max-width: 640px) {
+            .stats { flex-direction: column; gap: 24px; }
+            .lang-toggle { top: 16px; right: 16px; }
+        }
+
+        /* i18n */
+        [data-lang="zh"] { display: none; }
+        html[lang="zh"] [data-lang="zh"] { display: block; }
+        html[lang="zh"] [data-lang="en"] { display: none; }
+        html[lang="zh"] span[data-lang="zh"],
+        html[lang="zh"] strong[data-lang="zh"] { display: inline; }
+        html[lang="zh"] span[data-lang="en"],
+        html[lang="zh"] strong[data-lang="en"] { display: none; }
+        span[data-lang="zh"], strong[data-lang="zh"] { display: none; }
+    </style>
+</head>
+<body>
+    <!-- Language Toggle -->
+    <div class="lang-toggle">
+        <button class="lang-btn active" onclick="setLang('en')">EN</button>
+        <button class="lang-btn" onclick="setLang('zh')">中文</button>
+    </div>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="badge">
+                <span class="badge-dot"></span>
+                <span data-lang="en">Limited Availability</span>
+                <span data-lang="zh">限量开放</span>
+            </div>
+            
+            <h1>
+                <span data-lang="en">Take Control of Your<br>Hardware Identity</span>
+                <span data-lang="zh">掌控你的<br>硬件身份</span>
+            </h1>
+            
+            <p class="tagline">
+                <span data-lang="en">The most comprehensive HWID spoofing toolkit for Windows</span>
+                <span data-lang="zh">Windows 平台最全面的硬件指纹伪装工具</span>
+            </p>
+            
+            <p class="desc">
+                <span data-lang="en">
+                    Intercept and modify <strong>every</strong> hardware fingerprint API — from disk serials to SMBIOS tables. 
+                    Whether you're building licensing systems, conducting red team assessments, protecting your personal privacy from tracking, 
+                    or researching device fingerprinting — HWID Spoofer gives you complete visibility and control.
+                </span>
+                <span data-lang="zh">
+                    拦截并修改<strong>所有</strong>硬件指纹 API —— 从磁盘序列号到 SMBIOS 表。
+                    无论是开发授权系统、进行红队测试、保护个人隐私免受追踪，还是研究设备指纹技术 —— HWID Spoofer 都能让你完全掌控。
+                </span>
+            </p>
+            
+            <div class="cta-group">
+                <a href="mailto:lsw@zstun.com" class="cta">
+                    <span data-lang="en">Request Access</span>
+                    <span data-lang="zh">申请使用</span>
+                    <span>→</span>
+                </a>
+                <p class="cta-note">
+                    <span data-lang="en">Available for verified security professionals only</span>
+                    <span data-lang="zh">仅限通过审核的安全从业者</span>
+                </p>
+            </div>
+
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value">15+</div>
+                    <div class="stat-label">
+                        <span data-lang="en">Hooked APIs</span>
+                        <span data-lang="zh">Hook API</span>
+                    </div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">~50KB</div>
+                    <div class="stat-label">
+                        <span data-lang="en">Zero Dependencies</span>
+                        <span data-lang="zh">无依赖</span>
+                    </div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">Dual</div>
+                    <div class="stat-label">
+                        <span data-lang="en">User + Kernel Mode</span>
+                        <span data-lang="zh">用户态 + 内核态</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- Use Cases -->
+    <section class="section">
+        <div class="section-label">
+            <span data-lang="en">Use Cases</span>
+            <span data-lang="zh">应用场景</span>
+        </div>
+        <h2>
+            <span data-lang="en">Built for Professionals</span>
+            <span data-lang="zh">为专业人士打造</span>
+        </h2>
+        
+        <div class="use-cases">
+            <div class="use-case">
+                <div class="use-case-icon">🔴</div>
+                <div class="use-case-title">
+                    <span data-lang="en">Red Team Operations</span>
+                    <span data-lang="zh">红队行动</span>
+                </div>
+                <p>
+                    <span data-lang="en">Bypass hardware-based detection during security assessments and adversary simulations.</span>
+                    <span data-lang="zh">在安全评估和攻防演练中绕过基于硬件的检测机制。</span>
+                </p>
+            </div>
+            <div class="use-case">
+                <div class="use-case-icon">🔑</div>
+                <div class="use-case-title">
+                    <span data-lang="en">License System QA</span>
+                    <span data-lang="zh">授权系统测试</span>
+                </div>
+                <p>
+                    <span data-lang="en">Simulate thousands of unique machines from a single workstation to stress-test your licensing.</span>
+                    <span data-lang="zh">单台设备模拟数千台不同机器，压力测试授权系统。</span>
+                </p>
+            </div>
+            <div class="use-case">
+                <div class="use-case-icon">🛡️</div>
+                <div class="use-case-title">
+                    <span data-lang="en">Personal Privacy</span>
+                    <span data-lang="zh">个人隐私保护</span>
+                </div>
+                <p>
+                    <span data-lang="en">Prevent apps and services from tracking you via unique hardware identifiers.</span>
+                    <span data-lang="zh">防止应用和服务通过硬件标识追踪你的身份。</span>
+                </p>
+            </div>
+            <div class="use-case">
+                <div class="use-case-icon">🔬</div>
+                <div class="use-case-title">
+                    <span data-lang="en">Security Research</span>
+                    <span data-lang="zh">安全研究</span>
+                </div>
+                <p>
+                    <span data-lang="en">Study how applications collect and verify hardware fingerprints.</span>
+                    <span data-lang="zh">研究应用如何采集和验证硬件指纹信息。</span>
+                </p>
+            </div>
+            <div class="use-case">
+                <div class="use-case-icon">🎮</div>
+                <div class="use-case-title">
+                    <span data-lang="en">Anti-Cheat Analysis</span>
+                    <span data-lang="zh">反作弊分析</span>
+                </div>
+                <p>
+                    <span data-lang="en">Analyze hardware banning mechanisms and detection techniques for research purposes.</span>
+                    <span data-lang="zh">分析硬件封禁机制和检测技术，用于研究目的。</span>
+                </p>
+            </div>
+            <div class="use-case">
+                <div class="use-case-icon">🏢</div>
+                <div class="use-case-title">
+                    <span data-lang="en">Enterprise Testing</span>
+                    <span data-lang="zh">企业测试</span>
+                </div>
+                <p>
+                    <span data-lang="en">Test device management and asset tracking systems without deploying physical hardware.</span>
+                    <span data-lang="zh">无需部署物理硬件即可测试设备管理和资产追踪系统。</span>
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>HWID Spoofer · Windows 10/11 · v2.0</p>
+        <p class="footer-note">
+            <span data-lang="en">Access is limited to verified security professionals.</span>
+            <span data-lang="zh">仅限通过审核的安全从业者使用。</span>
+        </p>
+    </footer>
+
+    <script>
+        function setLang(lang) {
+            document.documentElement.lang = lang;
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent.includes(lang === 'en' ? 'EN' : '中'));
+            });
+            localStorage.setItem('lang', lang);
+        }
+        
+        // Init - default to English
+        const savedLang = localStorage.getItem('lang') || 'en';
+        setLang(savedLang);
+    </script>
+</body>
+</html>
