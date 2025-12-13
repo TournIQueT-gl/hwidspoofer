@@ -51,6 +51,7 @@
     </Compile>
     <Compile Include="HWIDService.cs" />
     <Compile Include="Controls.cs" />
+    <Compile Include="Localization.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

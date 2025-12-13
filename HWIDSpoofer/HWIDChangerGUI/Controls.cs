@@ -140,10 +140,36 @@ namespace HWIDChangerGUI
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
         }
 
-        protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
-        protected override void OnMouseLeave(EventArgs e) { _hover = false; _press = false; Invalidate(); base.OnMouseLeave(e); }
-        protected override void OnMouseDown(MouseEventArgs e) { _press = true; Invalidate(); base.OnMouseDown(e); }
-        protected override void OnMouseUp(MouseEventArgs e) { _press = false; Invalidate(); base.OnMouseUp(e); }
+        protected override void OnMouseEnter(EventArgs e) 
+        { 
+            _hover = true; 
+            Cursor = Cursors.Hand;
+            Invalidate(); 
+            base.OnMouseEnter(e); 
+        }
+        
+        protected override void OnMouseLeave(EventArgs e) 
+        { 
+            _hover = false; 
+            _press = false; 
+            Invalidate(); 
+            base.OnMouseLeave(e); 
+        }
+        
+        protected override void OnMouseDown(MouseEventArgs e) 
+        { 
+            _press = true; 
+            // Scale down effect
+            Invalidate(); 
+            base.OnMouseDown(e); 
+        }
+        
+        protected override void OnMouseUp(MouseEventArgs e) 
+        { 
+            _press = false; 
+            Invalidate(); 
+            base.OnMouseUp(e); 
+        }
 
         private GraphicsPath RoundedRect(Rectangle r, int rad)
         {

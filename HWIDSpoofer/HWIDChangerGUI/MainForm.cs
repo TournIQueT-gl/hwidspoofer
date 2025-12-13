@@ -69,14 +69,14 @@ namespace HWIDChangerGUI
         private void SetupTray()
         {
             var menu = new ContextMenuStrip();
-            menu.Items.Add("Open", null, (s, e) => { Show(); Activate(); });
+            menu.Items.Add(Lang.Get("TrayOpen"), null, (s, e) => { Show(); Activate(); });
             menu.Items.Add("-");
-            menu.Items.Add("Quick Spoof", null, async (s, e) => await DoQuickSpoof());
-            menu.Items.Add("Restore", null, async (s, e) => await DoRestore());
+            menu.Items.Add(Lang.Get("TrayQuickSpoof"), null, async (s, e) => await DoQuickSpoof());
+            menu.Items.Add(Lang.Get("TrayRestore"), null, async (s, e) => await DoRestore());
             menu.Items.Add("-");
-            menu.Items.Add("Quit", null, (s, e) => { _isClosing = true; _trayIcon.Dispose(); Application.Exit(); });
+            menu.Items.Add(Lang.Get("TrayQuit"), null, (s, e) => { _isClosing = true; _trayIcon.Dispose(); Application.Exit(); });
 
-            _trayIcon = new NotifyIcon { Text = "HWID Changer", Icon = SystemIcons.Shield, ContextMenuStrip = menu, Visible = true };
+            _trayIcon = new NotifyIcon { Text = Lang.Get("AppTitle"), Icon = SystemIcons.Shield, ContextMenuStrip = menu, Visible = true };
             _trayIcon.DoubleClick += (s, e) => { Show(); Activate(); };
         }
 
@@ -91,10 +91,10 @@ namespace HWIDChangerGUI
 
             if (!_service.IsExeAvailable)
             {
-                UpdateStatusCard("Core Not Found", "HWIDChanger.exe is missing", Theme.Danger, "!");
+                UpdateStatusCard(Lang.Get("StatusCoreNotFound"), Lang.Get("SubCoreNotFound"), Theme.Danger, "!");
                 btnMain.Enabled = false;
-                Log("HWIDChanger.exe not found", LT.Error);
-                ShowNotification("Error", "Core component not found", ToolTipIcon.Error);
+                Log(Lang.Get("LogCoreNotFound"), LT.Error);
+                ShowNotification(Lang.Get("NotifyError"), Lang.Get("NotifyCoreNotFound"), ToolTipIcon.Error);
                 return;
             }
 
@@ -102,17 +102,17 @@ namespace HWIDChangerGUI
             {
                 _isSpoofActive = true;
                 UpdateMainButton();
-                UpdateStatusCard("Protected", "Your hardware IDs are spoofed", Theme.Success, "✓");
-                Log("Protection active", LT.OK);
+                UpdateStatusCard(Lang.Get("StatusProtected"), Lang.Get("SubProtected"), Theme.Success, "✓");
+                Log(Lang.Get("LogProtectionActive"), LT.OK);
             }
             else
             {
-                UpdateStatusCard("Not Protected", "Click below to enable protection", Theme.TextMuted, "○");
+                UpdateStatusCard(Lang.Get("StatusNotProtected"), Lang.Get("SubNotProtected"), Theme.TextMuted, "○");
                 // Welcome message with delay
                 _welcomeTimer = new Timer { Interval = 500 };
                 _welcomeTimer.Tick += (s, e) => {
                     _welcomeTimer.Stop();
-                    Log("Welcome! Press F1 for help", LT.Info);
+                    Log(Lang.Get("LogWelcome"), LT.Info);
                 };
                 _welcomeTimer.Start();
             }
@@ -129,14 +129,14 @@ namespace HWIDChangerGUI
             _toolTip.BackColor = Theme.BgPrimary;
             _toolTip.ForeColor = Theme.TextPrimary;
 
-            _toolTip.SetToolTip(btnMain, "Toggle hardware ID protection (Ctrl+P)");
-            _toolTip.SetToolTip(btnGenerate, "Generate new random hardware IDs (Ctrl+G)");
-            _toolTip.SetToolTip(btnFullSpoof, "Apply registry + AppInit system-wide spoof (Ctrl+F)");
-            _toolTip.SetToolTip(btnInject, "Inject protection into a specific process (Ctrl+I)");
-            _toolTip.SetToolTip(btnConfig, "Edit spoofed hardware ID values (Ctrl+E)");
-            _toolTip.SetToolTip(btnAppInit, "Toggle AppInit DLL injection for all apps");
-            _toolTip.SetToolTip(btnRestore, "Restore original hardware IDs (Ctrl+R)");
-            _toolTip.SetToolTip(chkAutoStart, "Start HWID Changer when Windows starts");
+            _toolTip.SetToolTip(btnMain, Lang.Get("TipMain"));
+            _toolTip.SetToolTip(btnGenerate, Lang.Get("TipGenerate"));
+            _toolTip.SetToolTip(btnFullSpoof, Lang.Get("TipFullSpoof"));
+            _toolTip.SetToolTip(btnInject, Lang.Get("TipInject"));
+            _toolTip.SetToolTip(btnConfig, Lang.Get("TipConfig"));
+            _toolTip.SetToolTip(btnAppInit, Lang.Get("TipAppInit"));
+            _toolTip.SetToolTip(btnRestore, Lang.Get("TipRestore"));
+            _toolTip.SetToolTip(chkAutoStart, Lang.Get("TipAutoStart"));
         }
 
         private void OnKeyDown(object sender, KeyEventArgs e)
@@ -167,20 +167,7 @@ namespace HWIDChangerGUI
 
         private void ShowHelp()
         {
-            var help = "⌨️  Keyboard Shortcuts\n\n" +
-                "Ctrl+P  -  Toggle protection\n" +
-                "Ctrl+G  -  Generate new IDs\n" +
-                "Ctrl+F  -  Full system spoof\n" +
-                "Ctrl+I  -  Inject to process\n" +
-                "Ctrl+E  -  Edit config\n" +
-                "Ctrl+R  -  Restore original\n" +
-                "Esc     -  Minimize to tray\n" +
-                "F1      -  Show this help\n\n" +
-                "💡 Tips:\n" +
-                "• Right-click tray icon for quick actions\n" +
-                "• Double-click tray to restore window";
-            
-            MessageBox.Show(help, "HWID Changer Help", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(Lang.Get("HelpContent"), Lang.Get("HelpTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void ShowNotification(string title, string message, ToolTipIcon icon)
@@ -243,6 +230,72 @@ namespace HWIDChangerGUI
         private void BtnMin_Click(object s, EventArgs e) { WindowState = FormWindowState.Minimized; }
         
         private void BtnHelp_Click(object s, EventArgs e) { ShowHelp(); }
+        
+        private void BtnLang_Click(object s, EventArgs e) 
+        { 
+            Lang.ToggleLanguage();
+            RefreshUI();
+            Log(Lang.IsChinese ? "已切换到中文" : "Switched to English", LT.Info);
+        }
+
+        private void RefreshUI()
+        {
+            // Update button text to show switch option
+            btnLang.Text = Lang.IsChinese ? "EN" : "中";
+            
+            // Title
+            lblTitle.Text = Lang.Get("AppTitle");
+            if (_trayIcon != null) _trayIcon.Text = Lang.Get("AppTitle");
+            
+            // Main button
+            btnMain.Text = _isSpoofActive ? Lang.Get("BtnDisable") : Lang.Get("BtnEnable");
+            
+            // Action buttons
+            btnGenerate.Text = Lang.Get("BtnGenerate");
+            btnFullSpoof.Text = Lang.Get("BtnFullSpoof");
+            btnInject.Text = Lang.Get("BtnInject");
+            btnConfig.Text = Lang.Get("BtnConfig");
+            btnAppInit.Text = _appInitEnabled ? Lang.Get("BtnAppInitDisable") : Lang.Get("BtnAppInitEnable");
+            btnRestore.Text = Lang.Get("BtnRestore");
+            
+            // Labels
+            lblAdvanced.Text = Lang.Get("LblMoreOptions");
+            chkAutoStart.Text = Lang.Get("LblAutoStart");
+            
+            // Status card
+            if (_isSpoofActive)
+            {
+                lblStatus.Text = Lang.Get("StatusProtected");
+                lblStatusSub.Text = Lang.Get("SubProtected");
+            }
+            else
+            {
+                lblStatus.Text = Lang.Get("StatusNotProtected");
+                lblStatusSub.Text = Lang.Get("SubNotProtected");
+            }
+            
+            // Footer status
+            lblStatusText.Text = Lang.Get("LblReady");
+            
+            // Tooltips
+            SetupTooltips();
+            
+            // Tray menu
+            RefreshTrayMenu();
+        }
+
+        private void RefreshTrayMenu()
+        {
+            if (_trayIcon == null || _trayIcon.ContextMenuStrip == null) return;
+            var menu = _trayIcon.ContextMenuStrip;
+            menu.Items.Clear();
+            menu.Items.Add(Lang.Get("TrayOpen"), null, (s, e) => { Show(); Activate(); });
+            menu.Items.Add("-");
+            menu.Items.Add(Lang.Get("TrayQuickSpoof"), null, async (s, e) => await DoQuickSpoof());
+            menu.Items.Add(Lang.Get("TrayRestore"), null, async (s, e) => await DoRestore());
+            menu.Items.Add("-");
+            menu.Items.Add(Lang.Get("TrayQuit"), null, (s, e) => { _isClosing = true; _trayIcon.Dispose(); Application.Exit(); });
+        }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
@@ -339,7 +392,7 @@ namespace HWIDChangerGUI
             {
                 _isSpoofActive = false;
                 _appInitEnabled = false;
-                btnAppInit.Text = "Enable AppInit";
+                btnAppInit.Text = Lang.Get("BtnAppInitEnable");
                 UpdateMainButton();
                 Log("Original values restored", LT.OK);
                 txtDisk.Text = txtVolume.Text = txtGuid.Text = txtProduct.Text = txtMac.Text = txtBios.Text = "";
@@ -357,15 +410,15 @@ namespace HWIDChangerGUI
         {
             if (_isSpoofActive)
             {
-                btnMain.Text = "Disable Protection";
+                btnMain.Text = Lang.Get("BtnDisable");
                 btnMain.ButtonColor = Theme.Danger;
-                UpdateStatusCard("Protected", "Hardware IDs are spoofed", Theme.Success, "✓");
+                UpdateStatusCard(Lang.Get("StatusProtected"), Lang.Get("SubProtected"), Theme.Success, "✓");
             }
             else
             {
-                btnMain.Text = "Enable Protection";
+                btnMain.Text = Lang.Get("BtnEnable");
                 btnMain.ButtonColor = Theme.Accent;
-                UpdateStatusCard("Not Protected", "Click below to enable protection", Theme.TextMuted, "○");
+                UpdateStatusCard(Lang.Get("StatusNotProtected"), Lang.Get("SubNotProtected"), Theme.TextMuted, "○");
             }
         }
 
@@ -463,7 +516,7 @@ namespace HWIDChangerGUI
             {
                 _allItems = items;
                 
-                Text = "Select Process";
+                Text = Lang.Get("DlgProcessTitle");
                 Size = new Size(420, 500);
                 StartPosition = FormStartPosition.CenterParent;
                 FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -473,26 +526,27 @@ namespace HWIDChangerGUI
 
                 // Title
                 var lblTitle = new Label { 
-                    Text = "💉  Inject to Process", 
+                    Text = "💉  " + Lang.Get("BtnInject"), 
                     Font = new Font("Segoe UI", 14F), 
                     ForeColor = Theme.TextPrimary,
                     Location = new Point(20, 16), 
                     AutoSize = true 
                 };
 
+                var searchPlaceholder = Lang.Get("DlgProcessSearch");
                 // Search box
                 _search = new TextBox { 
                     Location = new Point(20, 52), 
                     Size = new Size(360, 28),
                     Font = new Font("Segoe UI", 10F),
-                    Text = "",
+                    Text = searchPlaceholder,
                     ForeColor = Color.Gray
                 };
                 _search.GotFocus += (s, e) => { 
                     if (_search.ForeColor == Color.Gray) { _search.Text = ""; _search.ForeColor = Color.Black; }
                 };
                 _search.LostFocus += (s, e) => { 
-                    if (string.IsNullOrEmpty(_search.Text)) { _search.Text = "Search process..."; _search.ForeColor = Color.Gray; }
+                    if (string.IsNullOrEmpty(_search.Text)) { _search.Text = searchPlaceholder; _search.ForeColor = Color.Gray; }
                 };
                 _search.Text = "Search process...";
                 _search.TextChanged += (s, e) => { if (_search.ForeColor != Color.Gray) FilterList(); };
@@ -506,16 +560,16 @@ namespace HWIDChangerGUI
                     Font = new Font("Segoe UI", 9F),
                     BorderStyle = BorderStyle.FixedSingle
                 };
-                _list.Columns.Add("Process", 180);
-                _list.Columns.Add("PID", 60);
-                _list.Columns.Add("Window", 100);
+                _list.Columns.Add(Lang.Get("ColProcess"), 180);
+                _list.Columns.Add(Lang.Get("ColPID"), 60);
+                _list.Columns.Add(Lang.Get("ColWindow"), 100);
                 _list.DoubleClick += (s, e) => { if (_list.SelectedItems.Count > 0) { DialogResult = DialogResult.OK; Close(); } };
                 
                 PopulateList(items);
 
                 // Buttons
                 _btnRefresh = new Button { 
-                    Text = "↻ Refresh", 
+                    Text = "↻ " + Lang.Get("BtnRefresh"), 
                     Location = new Point(20, 410), 
                     Size = new Size(90, 36),
                     FlatStyle = FlatStyle.Flat,
@@ -525,7 +579,7 @@ namespace HWIDChangerGUI
                 _btnRefresh.Click += (s, e) => RefreshProcesses();
 
                 _btnOk = new Button { 
-                    Text = "Inject", 
+                    Text = Lang.Get("BtnInject").Replace("注入进程", "注入").Replace("Inject to Process", "Inject"), 
                     Location = new Point(210, 410), 
                     Size = new Size(80, 36),
                     FlatStyle = FlatStyle.Flat,
@@ -535,7 +589,7 @@ namespace HWIDChangerGUI
                 };
 
                 _btnCancel = new Button { 
-                    Text = "Cancel", 
+                    Text = Lang.Get("BtnCancel"), 
                     Location = new Point(300, 410), 
                     Size = new Size(80, 36),
                     FlatStyle = FlatStyle.Flat,
@@ -619,9 +673,9 @@ namespace HWIDChangerGUI
             // Show dialog with options
             var result = MessageBox.Show(
                 _appInitEnabled 
-                    ? "AppInit is currently ENABLED.\n\nClick Yes to DISABLE it."
-                    : "AppInit will inject protection into ALL new applications system-wide.\n\nClick Yes to ENABLE it.",
-                "AppInit DLL Injection",
+                    ? Lang.Get("DlgAppInitDisableMsg")
+                    : Lang.Get("DlgAppInitEnableMsg"),
+                Lang.Get("DlgAppInitTitle"),
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question);
 
@@ -637,7 +691,7 @@ namespace HWIDChangerGUI
                 { 
                     Log("AppInit disabled", LT.OK);
                     _appInitEnabled = false;
-                    btnAppInit.Text = "Enable AppInit";
+                    btnAppInit.Text = Lang.Get("BtnAppInitEnable");
                 }
                 else Log("Failed: " + r.Error, LT.Error);
             }
@@ -649,7 +703,7 @@ namespace HWIDChangerGUI
                 { 
                     Log("AppInit enabled - affects all new apps", LT.OK);
                     _appInitEnabled = true;
-                    btnAppInit.Text = "Disable AppInit";
+                    btnAppInit.Text = Lang.Get("BtnAppInitDisable");
                     UpdateStatusCard("System Protected", "All new apps will have spoofed IDs", Theme.Success, "✓");
                 }
                 else Log("Failed: " + r.Error, LT.Error);
@@ -671,11 +725,8 @@ namespace HWIDChangerGUI
         private async void BtnFullSpoof_Click(object s, EventArgs e)
         {
             var result = MessageBox.Show(
-                "Full System Spoof will:\n\n" +
-                "• Modify registry hardware IDs\n" +
-                "• Enable AppInit for all new apps\n\n" +
-                "This affects the entire system. Continue?",
-                "Full System Spoof",
+                Lang.Get("DlgFullSpoofMsg"),
+                Lang.Get("DlgFullSpoofTitle"),
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);
 
@@ -689,7 +740,7 @@ namespace HWIDChangerGUI
                 Log("Full system spoof applied!", LT.OK); 
                 _isSpoofActive = true; 
                 _appInitEnabled = true;
-                btnAppInit.Text = "Disable AppInit";
+                btnAppInit.Text = Lang.Get("BtnAppInitDisable");
                 UpdateMainButton();
                 UpdateStatusCard("Fully Protected", "Registry + AppInit active", Theme.Success, "✓");
                 ShowNotification("Protected", "Full system spoof applied", ToolTipIcon.Info);
@@ -811,6 +862,20 @@ namespace HWIDChangerGUI
                     lblStatusIcon.Text = "○";
                 lblStatusIcon.ForeColor = iconColor;
             }
+            
+            // Flash effect on status change
+            if (cardStatus != null)
+            {
+                FlashControl(cardStatus);
+            }
+        }
+
+        private async void FlashControl(Control ctrl)
+        {
+            var originalBg = ctrl.BackColor;
+            ctrl.BackColor = Color.FromArgb(240, 248, 255); // Light blue flash
+            await Task.Delay(150);
+            ctrl.BackColor = originalBg;
         }
 
         private enum LT { Info, OK, Warn, Error }
@@ -845,7 +910,7 @@ namespace HWIDChangerGUI
 
             using (var dlg = new Form())
             {
-                dlg.Text = "Edit Configuration";
+                dlg.Text = Lang.Get("DlgConfigTitle");
                 dlg.Size = new Size(520, 500);
                 dlg.StartPosition = FormStartPosition.CenterParent;
                 dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -855,7 +920,7 @@ namespace HWIDChangerGUI
 
                 // Title with icon
                 var lblTitle = new Label { 
-                    Text = "⚙️  Hardware ID Configuration", 
+                    Text = "⚙️  " + Lang.Get("DlgConfigTitle"), 
                     Location = new Point(20, 16), 
                     AutoSize = true, 
                     Font = new Font("Segoe UI", 14F), 
@@ -863,7 +928,7 @@ namespace HWIDChangerGUI
                 };
 
                 var lblDesc = new Label { 
-                    Text = "Edit the spoofed hardware identifiers below", 
+                    Text = Lang.Get("DlgConfigDesc"), 
                     Location = new Point(20, 44), 
                     AutoSize = true, 
                     Font = new Font("Segoe UI", 9F), 
@@ -882,7 +947,7 @@ namespace HWIDChangerGUI
                 };
 
                 var btnGenerate = new Button { 
-                    Text = "🔄 Generate New", 
+                    Text = "🔄 " + Lang.Get("BtnGenerateNew"), 
                     Location = new Point(20, 410), 
                     Size = new Size(120, 36),
                     FlatStyle = FlatStyle.Flat,
@@ -891,7 +956,7 @@ namespace HWIDChangerGUI
                 };
                 
                 var btnSave = new Button { 
-                    Text = "💾 Save", 
+                    Text = "💾 " + Lang.Get("BtnSave"), 
                     Location = new Point(280, 410), 
                     Size = new Size(95, 36), 
                     FlatStyle = FlatStyle.Flat,
@@ -901,7 +966,7 @@ namespace HWIDChangerGUI
                 };
 
                 var btnCancel = new Button { 
-                    Text = "Cancel", 
+                    Text = Lang.Get("BtnCancel"), 
                     Location = new Point(385, 410), 
                     Size = new Size(95, 36), 
                     FlatStyle = FlatStyle.Flat,
@@ -918,7 +983,7 @@ namespace HWIDChangerGUI
                     {
                         txt.Text = File.ReadAllText(cfgPath);
                     }
-                    btnGenerate.Text = "🔄 Generate New";
+                    btnGenerate.Text = "🔄 " + Lang.Get("BtnGenerateNew");
                     btnGenerate.Enabled = true;
                 };
 
@@ -929,7 +994,7 @@ namespace HWIDChangerGUI
                 if (dlg.ShowDialog(this) == DialogResult.OK)
                 {
                     File.WriteAllText(cfgPath, txt.Text);
-                    Log("Config saved", LT.OK);
+                    Log(Lang.Get("LogConfigSaved"), LT.OK);
                 }
             }
         }
@@ -937,8 +1002,8 @@ namespace HWIDChangerGUI
         private async void BtnRestore_Click(object sender, EventArgs e)
         {
             var result = MessageBox.Show(
-                "This will restore your original hardware IDs.\nAre you sure?",
-                "Restore Original", 
+                Lang.Get("DlgRestoreMsg"),
+                Lang.Get("DlgRestoreTitle"), 
                 MessageBoxButtons.YesNo, 
                 MessageBoxIcon.Question);
                 

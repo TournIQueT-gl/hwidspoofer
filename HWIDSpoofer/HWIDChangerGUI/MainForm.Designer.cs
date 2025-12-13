@@ -28,7 +28,7 @@ namespace HWIDChangerGUI
             panelHeader.MouseUp += TitleMouseUp;
 
             lblTitle = new System.Windows.Forms.Label();
-            lblTitle.Text = "HWID Changer";
+            lblTitle.Text = Lang.Get("AppTitle");
             lblTitle.Font = new System.Drawing.Font("Segoe UI", 12F);
             lblTitle.ForeColor = Theme.TextPrimary;
             lblTitle.AutoSize = true;
@@ -67,15 +67,28 @@ namespace HWIDChangerGUI
             btnHelp.Font = new System.Drawing.Font("Segoe UI", 12F);
             btnHelp.ForeColor = Theme.TextMuted;
             btnHelp.Size = new System.Drawing.Size(32, 32);
-            btnHelp.Location = new System.Drawing.Point(250, 14);
+            btnHelp.Location = new System.Drawing.Point(210, 14);
             btnHelp.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             btnHelp.Cursor = System.Windows.Forms.Cursors.Hand;
             btnHelp.Click += BtnHelp_Click;
             btnHelp.MouseEnter += (s, e) => { btnHelp.ForeColor = Theme.Accent; };
             btnHelp.MouseLeave += (s, e) => { btnHelp.ForeColor = Theme.TextMuted; };
 
+            btnLang = new System.Windows.Forms.Label();
+            btnLang.Text = Lang.IsChinese ? "EN" : "中";
+            btnLang.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            btnLang.ForeColor = Theme.TextMuted;
+            btnLang.Size = new System.Drawing.Size(32, 32);
+            btnLang.Location = new System.Drawing.Point(250, 14);
+            btnLang.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            btnLang.Cursor = System.Windows.Forms.Cursors.Hand;
+            btnLang.Click += BtnLang_Click;
+            btnLang.MouseEnter += (s, e) => { btnLang.ForeColor = Theme.Accent; };
+            btnLang.MouseLeave += (s, e) => { btnLang.ForeColor = Theme.TextMuted; };
+
             panelHeader.Controls.Add(lblTitle);
             panelHeader.Controls.Add(btnHelp);
+            panelHeader.Controls.Add(btnLang);
             panelHeader.Controls.Add(btnClose);
             panelHeader.Controls.Add(btnMin);
 
@@ -93,14 +106,14 @@ namespace HWIDChangerGUI
             lblStatusIcon.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
 
             lblStatus = new System.Windows.Forms.Label();
-            lblStatus.Text = "Not Protected";
+            lblStatus.Text = Lang.Get("StatusNotProtected");
             lblStatus.Font = new System.Drawing.Font("Segoe UI", 13F);
             lblStatus.ForeColor = Theme.TextPrimary;
             lblStatus.AutoSize = true;
             lblStatus.Location = new System.Drawing.Point(72, 22);
 
             lblStatusSub = new System.Windows.Forms.Label();
-            lblStatusSub.Text = "Click below to enable protection";
+            lblStatusSub.Text = Lang.Get("SubNotProtected");
             lblStatusSub.Font = new System.Drawing.Font("Segoe UI", 9F);
             lblStatusSub.ForeColor = Theme.TextSecondary;
             lblStatusSub.AutoSize = true;
@@ -112,7 +125,7 @@ namespace HWIDChangerGUI
 
             // ===== MAIN BUTTON =====
             btnMain = new ModernButton();
-            btnMain.Text = "Enable Protection";
+            btnMain.Text = Lang.Get("BtnEnable");
             btnMain.ButtonColor = Theme.Accent;
             btnMain.Font = new System.Drawing.Font("Segoe UI", 11F);
             btnMain.Size = new System.Drawing.Size(332, 52);
@@ -121,7 +134,7 @@ namespace HWIDChangerGUI
 
             // ===== ACTION BUTTONS =====
             btnGenerate = new ModernButton();
-            btnGenerate.Text = "Generate New IDs";
+            btnGenerate.Text = Lang.Get("BtnGenerate");
             btnGenerate.ButtonColor = Theme.Primary;
             btnGenerate.Outline = true;
             btnGenerate.Font = new System.Drawing.Font("Segoe UI", 9.5F);
@@ -130,7 +143,7 @@ namespace HWIDChangerGUI
             btnGenerate.Click += BtnGenerate_Click;
 
             btnFullSpoof = new ModernButton();
-            btnFullSpoof.Text = "Full System Spoof";
+            btnFullSpoof.Text = Lang.Get("BtnFullSpoof");
             btnFullSpoof.ButtonColor = Theme.Primary;
             btnFullSpoof.Outline = true;
             btnFullSpoof.Font = new System.Drawing.Font("Segoe UI", 9.5F);
@@ -140,14 +153,14 @@ namespace HWIDChangerGUI
 
             // ===== ADVANCED SECTION =====
             lblAdvanced = new System.Windows.Forms.Label();
-            lblAdvanced.Text = "More options";
+            lblAdvanced.Text = Lang.Get("LblMoreOptions");
             lblAdvanced.Font = new System.Drawing.Font("Segoe UI", 9F);
             lblAdvanced.ForeColor = Theme.TextMuted;
             lblAdvanced.AutoSize = true;
             lblAdvanced.Location = new System.Drawing.Point(24, 316);
 
             btnInject = new ModernButton();
-            btnInject.Text = "Inject to Process";
+            btnInject.Text = Lang.Get("BtnInject");
             btnInject.ButtonColor = Theme.Primary;
             btnInject.Outline = true;
             btnInject.Font = new System.Drawing.Font("Segoe UI", 9.5F);
@@ -156,7 +169,7 @@ namespace HWIDChangerGUI
             btnInject.Click += BtnInject_Click;
 
             btnConfig = new ModernButton();
-            btnConfig.Text = "Edit Config";
+            btnConfig.Text = Lang.Get("BtnConfig");
             btnConfig.ButtonColor = Theme.Primary;
             btnConfig.Outline = true;
             btnConfig.Font = new System.Drawing.Font("Segoe UI", 9.5F);
@@ -165,7 +178,7 @@ namespace HWIDChangerGUI
             btnConfig.Click += BtnConfig_Click;
 
             btnAppInit = new ModernButton();
-            btnAppInit.Text = "Enable AppInit";
+            btnAppInit.Text = Lang.Get("BtnAppInitEnable");
             btnAppInit.ButtonColor = Theme.Primary;
             btnAppInit.Outline = true;
             btnAppInit.Font = new System.Drawing.Font("Segoe UI", 9.5F);
@@ -174,7 +187,7 @@ namespace HWIDChangerGUI
             btnAppInit.Click += BtnAppInit_Click;
 
             btnRestore = new ModernButton();
-            btnRestore.Text = "Restore Original";
+            btnRestore.Text = Lang.Get("BtnRestore");
             btnRestore.ButtonColor = Theme.Primary;
             btnRestore.Outline = true;
             btnRestore.Font = new System.Drawing.Font("Segoe UI", 9.5F);
@@ -189,14 +202,14 @@ namespace HWIDChangerGUI
             panelFooter.Height = 52;
 
             lblStatusText = new System.Windows.Forms.Label();
-            lblStatusText.Text = "Ready";
+            lblStatusText.Text = Lang.Get("LblReady");
             lblStatusText.Font = new System.Drawing.Font("Segoe UI", 9F);
             lblStatusText.ForeColor = Theme.TextSecondary;
             lblStatusText.AutoSize = true;
             lblStatusText.Location = new System.Drawing.Point(24, 18);
 
             chkAutoStart = new System.Windows.Forms.CheckBox();
-            chkAutoStart.Text = "Auto-start";
+            chkAutoStart.Text = Lang.Get("LblAutoStart");
             chkAutoStart.Font = new System.Drawing.Font("Segoe UI", 9F);
             chkAutoStart.ForeColor = Theme.TextMuted;
             chkAutoStart.AutoSize = true;
@@ -264,7 +277,7 @@ namespace HWIDChangerGUI
 
         // Main controls
         private System.Windows.Forms.Panel panelHeader, panelFooter;
-        private System.Windows.Forms.Label lblTitle, btnClose, btnMin, btnHelp;
+        private System.Windows.Forms.Label lblTitle, btnClose, btnMin, btnHelp, btnLang;
         private ModernCard cardStatus;
         private System.Windows.Forms.Label lblStatusIcon, lblStatus, lblStatusSub, lblStatusText;
         private ModernButton btnMain, btnGenerate, btnFullSpoof;
