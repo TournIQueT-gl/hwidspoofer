@@ -50,3 +50,43 @@ HWIDSpoofer/build.bat requires Visual Studio, CMake and MinHook. This repository
 7. Add integration tests confirming consistent hardware values across multiple supported APIs.
 
 Previously published backups may remain in the repository's Git history even after removal from the current branch.
+
+
+## Sandbox verification matrix (October 2026)
+
+Windows Sandbox verified the registry changes and recovery:
+
+| Readback surface | Current result | Scope |
+| --- | --- | --- |
+| MachineGuid, ProductId, ComputerName registry key | CHANGED and restored exactly | Registry values, not physical firmware |
+| MAC from Get-NetAdapter | CHANGED and restored exactly | Standalone, driver-supported Sandbox adapter test; NOT integrated into the EXE |
+| BIOS/board via Win32_BIOS / Win32_BaseBoard | UNCHANGED | Hypervisor-provided SMBIOS; no firmware modifications implemented |
+| Disk serial via Win32_DiskDrive | NOT VERIFIED | Sandbox returned an empty disk serial |
+| Disk volume serial | Not verified | Different identifier from a physical disk serial |
+| User-mode DLL hooks in external processes | NOT VERIFIED | Legacy hooking is unsafe to treat as production-ready |
+| Kernel global mode | UNAVAILABLE | No sys file built in the v2 build; protocol differs between caller and driver |
+
+**Do not enable Windows test signing or run the experimental driver to address missing identifiers.**
+The driver and user-mode client disagree on device names and IOCTL definitions and have not been reviewed for kernel stability.
+
+### Read-only before/after measurements
+
+Use the tools/Verify-HWID.ps1 script in Windows Sandbox (no administrator access required for most readings):
+
+1. powershell -ExecutionPolicy Bypass -File .\tools\Verify-HWID.ps1 -Phase Before
+2. Perform one selected and independently reversible test.
+3. powershell -ExecutionPolicy Bypass -File .\tools\Verify-HWID.ps1 -Phase After
+
+Results are under Desktop\HWID-Verification: Before.json, After.json and Comparison.csv.
+If Windows or virtualized APIs do not expose a value, the result is **NOT VERIFIED**, never a false pass.
+ComputerNameKey and live ActiveName intentionally remain separate because name changes can require a reboot.
+
+### Engineering order for reliable hardware reporting
+
+1. Obtain independent process-level measurements for the specific APIs the product claims to intercept.
+2. Replace the original in-memory prologue patching with a reviewed, thread-safe hooking implementation before enabling hooks.
+3. Validate SMBIOS and storage descriptors with strict offset and length checks; refuse malformed or absent serials.
+4. Keep MAC overrides explicitly opt-in, restricted to driver-supported adapters, with rollback on interruption or verification failure.
+5. Provide a single before/after/restore report and show unsupported identifiers honestly. Changing an OS/driver report is not changing physical firmware.
+
+**This branch is a draft, not a release.**
