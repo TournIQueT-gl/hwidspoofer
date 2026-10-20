@@ -189,6 +189,7 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
                 printf("Global mode disabled\n");
             } else {
                 printf("Failed to disable global mode\n");
+                return 1;
             }
         }
         else if (strcmp(argv[i], "--registry-global") == 0) {
@@ -204,6 +205,7 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
                 printf("Registry restored\n");
             } else {
                 printf("Failed to restore registry\n");
+                return 1;
             }
         }
         else if (strcmp(argv[i], "--enable-appinit") == 0) {
@@ -223,22 +225,37 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
                 printf("AppInit injection disabled\n");
             } else {
                 printf("Failed to disable AppInit injection\n");
+                return 1;
             }
         }
         else if (strcmp(argv[i], "--full-usermode") == 0) {
-            // 完整用户态伪装：注册表 + AppInit
             printf("Applying full usermode spoof...\n");
-            if (hwid_apply_registry_global(config) == 0) {
-                printf("  Registry: OK\n");
+            if (hwid_apply_registry_global(config) != 0) {
+                fprintf(stderr, "  [ERROR] Registry stage failed; AppInit not enabled.\n");
+                return 1;
             }
+            printf("  Registry: OK\n");
             char dll_path[MAX_PATH];
-            GetModuleFileNameA(NULL, dll_path, MAX_PATH);
-            char* p = strrchr(dll_path, '\\');
-            if (p) strcpy(p + 1, "HWIDChanger.dll");
-            if (hwid_enable_appinit_injection(dll_path) == 0) {
-                printf("  AppInit: OK\n");
+            DWORD dll_len = GetModuleFileNameA(NULL, dll_path, MAX_PATH);
+            if (!dll_len || dll_len >= MAX_PATH) {
+                fprintf(stderr, "  [ERROR] Cannot locate executable. Attempting rollback.\n");
+                hwid_restore_registry();
+                return 1;
             }
-            printf("Full usermode spoof enabled!\n");
+            char* p = strrchr(dll_path, '\\');
+            if (!p || (size_t)(dll_path + MAX_PATH - (p + 1)) < sizeof("HWIDChanger.dll")) {
+                fprintf(stderr, "  [ERROR] DLL path is too long. Attempting rollback.\n");
+                hwid_restore_registry();
+                return 1;
+            }
+            strcpy(p + 1, "HWIDChanger.dll");
+            if (hwid_enable_appinit_injection(dll_path) != 0) {
+                fprintf(stderr, "  [ERROR] AppInit stage failed. Attempting registry rollback.\n");
+                if (hwid_restore_registry() != 0)
+                    fprintf(stderr, "  [ERROR] Manual restoration required.\n");
+                return 1;
+            }
+            printf("  AppInit: OK\nFull usermode spoof enabled!\n");
         }
         else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             printf("HWID Changer v%s\n\n", HWID_VERSION);
