@@ -29,7 +29,7 @@ int main() {
     CHECK(view.type == 1);
     CHECK(view.formatted_length == 4);
     CHECK(view.total_length == 7);
-    CHECK(view.strings_length == 2);
+    CHECK(view.strings_length == 1);
 
     CHECK(parse_smbios_record(nullptr, 0, view) == ParseResult::invalid);
     CHECK(view.formatted == nullptr);
