@@ -22,3 +22,12 @@ add_executable(HWIDTest hwid_test.c)
 target_link_libraries(HWIDTest PRIVATE kernel32 advapi32 iphlpapi)
 install(TARGETS HWIDChanger HWIDChangerHook HWIDTest
     RUNTIME DESTINATION bin LIBRARY DESTINATION bin)
+
+# Both PowerShell helpers are Windows inbox dependencies for the console UI.
+foreach(HELPER Verify-HWID.ps1 MacOverride.ps1)
+    add_custom_command(TARGET HWIDChanger POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/${HELPER}"
+        "$<TARGET_FILE_DIR:HWIDChanger>/${HELPER}")
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/tools/${HELPER}" DESTINATION bin)
+endforeach()
