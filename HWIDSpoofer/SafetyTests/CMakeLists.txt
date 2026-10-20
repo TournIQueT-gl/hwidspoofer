@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 3.16)
+project(SafetyParserTests LANGUAGES CXX)
+
+enable_testing()
+
+add_executable(smbios_parser_tests
+    test_smbios_record_parser.cpp
+)
+
+target_compile_features(smbios_parser_tests PRIVATE cxx_std_17)
+
+if(MSVC)
+    target_compile_options(smbios_parser_tests PRIVATE /W4 /WX)
+else()
+    target_compile_options(smbios_parser_tests PRIVATE
+        -Wall -Wextra -Wpedantic -Werror
+    )
+endif()
+
+add_test(NAME smbios_parser_tests COMMAND smbios_parser_tests)
