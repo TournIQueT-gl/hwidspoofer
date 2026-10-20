@@ -33,6 +33,17 @@ inline uint32_t extract_json_uint(const std::string& json,
     }
     if (start == pos) return default_value;
 
+    // A digit run must end at a valid value boundary. Otherwise inputs such
+    // as 12abc, 12.5, or 12e3 would be incorrectly accepted as the integer 12.
+    if (pos < json.size()) {
+        const char next = json[pos];
+        const bool is_whitespace =
+            std::isspace(static_cast<unsigned char>(next)) != 0;
+        if (!is_whitespace && next != ',' && next != '}') {
+            return default_value;
+        }
+    }
+
     uint32_t value = 0;
     const char* first = json.data() + start;
     const char* last = json.data() + pos;
