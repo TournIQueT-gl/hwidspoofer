@@ -42,6 +42,12 @@ int main() {
         {"uint32 overflow", R"({"n":4294967296})", "n", 7, 7},
         {"very large overflow", R"({"n":999999999999999999999999999999})", "n", 7, 7},
         {"string value", R"({"n":"12"})", "n", 7, 7},
+        {"trailing letters", R"({"n":12abc})", "n", 7, 7},
+        {"decimal value", R"({"n":12.5})", "n", 7, 7},
+        {"exponent value", R"({"n":12e3})", "n", 7, 7},
+        {"invalid closing delimiter", R"({"n":12])", "n", 7, 7},
+        {"valid comma delimiter", R"({"n":12,"other":1})", "n", 7, 12},
+        {"valid whitespace delimiter", "{\\"n\\":12 \\n}", "n", 7, 12},
         {"default zero", R"({"n":-1})", "n", 0, 0},
     };
 
