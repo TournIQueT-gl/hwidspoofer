@@ -47,7 +47,7 @@ int main() {
         {"exponent value", R"({"n":12e3})", "n", 7, 7},
         {"invalid closing delimiter", R"({"n":12])", "n", 7, 7},
         {"valid comma delimiter", R"({"n":12,"other":1})", "n", 7, 12},
-        {"valid whitespace delimiter", "{\\"n\\":12 \\n}", "n", 7, 12},
+        {"valid whitespace delimiter", R"({"n":12 })", "n", 7, 12},
         {"default zero", R"({"n":-1})", "n", 0, 0},
     };
 
