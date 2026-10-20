@@ -143,11 +143,6 @@ int hwid_restore_registry(void)
         fprintf(stderr, "  [FAIL] ComputerName restore\n");
         failures++;
     }
-    if (reg_write_string(HKEY_LOCAL_MACHINE, REG_ACTIVE_NAME,
-                         "ComputerName", g_backup.computer_name) != 0) {
-        fprintf(stderr, "  [FAIL] ActiveComputerName restore\n");
-        failures++;
-    }
 
     if (failures) {
         fprintf(stderr, "  [ERROR] Registry restore incomplete: %d write(s) failed.\n", failures);
@@ -199,14 +194,10 @@ int hwid_apply_registry_global(const HwidConfig* config)
     if (config->computer_name[0]) {
         if (reg_write_string(HKEY_LOCAL_MACHINE, REG_COMPUTER_NAME,
             "ComputerName", config->computer_name) == 0) {
-            if (reg_write_string(HKEY_LOCAL_MACHINE, REG_ACTIVE_NAME,
-                "ComputerName", config->computer_name) == 0) {
-                printf("    [OK] ComputerName modified\n");
-                success++;
-            } else {
-                fprintf(stderr, "    [FAIL] ActiveComputerName write\n");
-                failures++;
-            }
+            /* ActiveComputerName may legitimately differ during a pending rename.
+               Do not mutate it without a separate, accurate backup. */
+            printf("    [OK] ComputerName updated (reboot required)\n");
+            success++;
         } else {
             fprintf(stderr, "    [FAIL] ComputerName write\n");
             failures++;
