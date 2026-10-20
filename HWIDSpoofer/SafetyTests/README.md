@@ -2,12 +2,22 @@
 
 These tests exercise a small bounded parser against **synthetic byte arrays only**. They do not read hardware identifiers, alter system state, inject into processes, or connect to a game or anti-cheat. The helper is deliberately not wired into the existing HWID-changing code; it is a starting point for reviewing parser contracts, not proof that the production parser is fixed.
 
-## Run
+## Build and run with CMake
 
-From this directory:
+From a terminal:
 
-- MSVC Developer Command Prompt: `cl /std:c++17 /EHsc /W4 test_smbios_record_parser.cpp`
-- GCC or Clang: `c++ -std=c++17 -Wall -Wextra -Wpedantic -Werror test_smbios_record_parser.cpp -o parser_tests`
+```sh
+cmake -S HWIDSpoofer/SafetyTests -B build/safety-tests
+cmake --build build/safety-tests --config Release
+ctest --test-dir build/safety-tests -C Release --output-on-failure
+```
+
+The test target uses C++17 and treats compiler warnings as errors. On GCC/Clang builds, CI also enables AddressSanitizer and UndefinedBehaviorSanitizer.
+
+## Direct compiler commands
+
+- MSVC Developer Command Prompt: `cl /nologo /std:c++17 /EHsc /W4 /WX test_smbios_record_parser.cpp /Fe:parser_tests.exe`
+- GCC or Clang: `c++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -fsanitize=address,undefined -fno-omit-frame-pointer test_smbios_record_parser.cpp -o parser_tests`
 
 Then run `parser_tests.exe` on Windows or `./parser_tests` on Linux/macOS.
 
@@ -18,5 +28,6 @@ Then run `parser_tests.exe` on Windows or `./parser_tests` on Linux/macOS.
 - Missing string-set terminator
 - A well-formed synthetic record
 - End-of-table record recognition
+- A deterministic sweep of short malformed inputs and output-bound invariants
 
-The production SMBIOS parsing path remains unchanged and still requires a separate, carefully reviewed refactor. These tests are not a substitute for ASan/UBSan, fuzzing, or Windows VM testing.
+The production SMBIOS parsing path remains unchanged and still requires a separate, carefully reviewed refactor. These tests are not a substitute for broader fuzzing or Windows VM testing.
