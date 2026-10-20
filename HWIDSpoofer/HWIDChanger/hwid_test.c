@@ -10,6 +10,8 @@
 #include <iphlpapi.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include "hwid_readback.h"
 
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "advapi32.lib")
@@ -36,50 +38,36 @@ void test_volume_serial(void) {
 
 // 测试2: DeviceIoControl - 获取磁盘序列号
 void test_disk_serial(void) {
-    printf("\n[TEST 2] DeviceIoControl - Disk Serial (STORAGE_QUERY_PROPERTY)\n");
-    printf("  ----------------------------------------\n");
-    
-    HANDLE hDisk = CreateFileW(L"\\\\.\\PhysicalDrive0", 
-        0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
-    
-    if (hDisk == INVALID_HANDLE_VALUE) {
-        printf("  [ERROR] Cannot open PhysicalDrive0: %d\n", GetLastError());
+    printf("\n[TEST 2] STORAGE_DEVICE_DESCRIPTOR - disk serial\n");
+    HANDLE disk = CreateFileW(L"\\\\.\\PhysicalDrive0", 0,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE,
+                              NULL, OPEN_EXISTING, 0, NULL);
+    if (disk == INVALID_HANDLE_VALUE) {
+        printf("  NOT VERIFIED: PhysicalDrive0 could not be opened (%lu)\n",
+               (unsigned long)GetLastError());
         return;
     }
-    
     STORAGE_PROPERTY_QUERY query = {0};
     query.PropertyId = StorageDeviceProperty;
     query.QueryType = PropertyStandardQuery;
-    
-    BYTE buffer[1024] = {0};
-    DWORD bytesReturned = 0;
-    
-    if (DeviceIoControl(hDisk, IOCTL_STORAGE_QUERY_PROPERTY,
-        &query, sizeof(query), buffer, sizeof(buffer), &bytesReturned, NULL)) {
-        
-        STORAGE_DEVICE_DESCRIPTOR* desc = (STORAGE_DEVICE_DESCRIPTOR*)buffer;
-        
-        if (desc->SerialNumberOffset && desc->SerialNumberOffset < bytesReturned) {
-            char* serial = (char*)buffer + desc->SerialNumberOffset;
-            printf("  Disk Serial:   %s\n", serial);
-        } else {
-            printf("  Disk Serial:   (not available)\n");
-        }
-        
-        if (desc->ProductIdOffset && desc->ProductIdOffset < bytesReturned) {
-            char* product = (char*)buffer + desc->ProductIdOffset;
-            printf("  Disk Product:  %s\n", product);
-        }
-        
-        if (desc->VendorIdOffset && desc->VendorIdOffset < bytesReturned) {
-            char* vendor = (char*)buffer + desc->VendorIdOffset;
-            printf("  Disk Vendor:   %s\n", vendor);
-        }
-    } else {
-        printf("  [ERROR] DeviceIoControl failed: %d\n", GetLastError());
+    BYTE bytes[4096] = {0};
+    DWORD returned = 0;
+    BOOL ok = DeviceIoControl(disk, IOCTL_STORAGE_QUERY_PROPERTY,
+                              &query, sizeof(query), bytes, sizeof(bytes), &returned, NULL);
+    CloseHandle(disk);
+    if (!ok) {
+        printf("  NOT VERIFIED: storage query failed (%lu)\n",
+               (unsigned long)GetLastError());
+        return;
     }
-    
-    CloseHandle(hDisk);
+    char serial[HWID_SERIAL_CAP] = {0};
+    int result = hwid_read_storage_serial(bytes, returned, serial, sizeof(serial));
+    if (result == 0)
+        printf("  Disk serial: %s\n", serial);
+    else if (result == 1)
+        printf("  NOT VERIFIED: storage device exposes no serial number\n");
+    else
+        printf("  NOT VERIFIED: invalid/truncated storage descriptor\n");
 }
 
 // 测试3: GetAdaptersInfo - 获取MAC地址
@@ -209,73 +197,35 @@ void test_computer_name(void) {
 
 // 测试8: GetSystemFirmwareTable - 获取SMBIOS数据
 void test_smbios(void) {
-    printf("\n[TEST 8] GetSystemFirmwareTable - SMBIOS Data\n");
-    printf("  ----------------------------------------\n");
-    
-    DWORD size = GetSystemFirmwareTable(RSMB_SIGNATURE, 0, NULL, 0);
-    if (size == 0) {
-        printf("  [ERROR] GetSystemFirmwareTable size failed: %d\n", GetLastError());
+    printf("\n[TEST 8] GetSystemFirmwareTable - SMBIOS readback\n");
+    DWORD capacity = GetSystemFirmwareTable(RSMB_SIGNATURE, 0, NULL, 0);
+    if (capacity < 8 || capacity > 4 * 1024 * 1024) {
+        printf("  NOT VERIFIED: SMBIOS response unavailable or invalid (%lu)\n",
+               (unsigned long)capacity);
         return;
     }
-    
-    BYTE* buffer = (BYTE*)malloc(size);
-    if (GetSystemFirmwareTable(RSMB_SIGNATURE, 0, buffer, size) == 0) {
-        printf("  [ERROR] GetSystemFirmwareTable failed: %d\n", GetLastError());
-        free(buffer);
+    BYTE* bytes = (BYTE*)malloc(capacity);
+    if (!bytes) {
+        printf("  NOT VERIFIED: out of memory\n");
         return;
     }
-    
-    // 解析SMBIOS结构
-    printf("  SMBIOS Size:   %d bytes\n", size);
-    
-    // 简单解析 - 查找Type 1 (System Info)
-    BYTE* data = buffer + 8;  // 跳过头部
-    DWORD dataLen = *(DWORD*)(buffer + 4);
-    BYTE* end = data + dataLen;
-    
-    while (data < end) {
-        BYTE type = data[0];
-        BYTE len = data[1];
-        
-        if (type == 127) break;  // End of table
-        
-        if (type == 1 && len >= 8) {  // System Information
-            // 字符串表在结构后面
-            char* strings = (char*)(data + len);
-            BYTE serialIdx = data[7];
-            
-            // 找到序列号字符串
-            if (serialIdx > 0) {
-                char* s = strings;
-                for (int i = 1; i < serialIdx && *s; i++) {
-                    while (*s) s++;
-                    s++;
-                }
-                printf("  System Serial: %s\n", s);
-            }
-        }
-        
-        if (type == 2 && len >= 8) {  // Baseboard
-            char* strings = (char*)(data + len);
-            BYTE serialIdx = data[7];
-            
-            if (serialIdx > 0) {
-                char* s = strings;
-                for (int i = 1; i < serialIdx && *s; i++) {
-                    while (*s) s++;
-                    s++;
-                }
-                printf("  Board Serial:  %s\n", s);
-            }
-        }
-        
-        // 移动到下一个结构
-        data += len;
-        while (data < end - 1 && !(data[0] == 0 && data[1] == 0)) data++;
-        data += 2;
+    DWORD received = GetSystemFirmwareTable(RSMB_SIGNATURE, 0, bytes, capacity);
+    if (received < 8 || received > capacity) {
+        printf("  NOT VERIFIED: SMBIOS query failed or grew unexpectedly (%lu)\n",
+               (unsigned long)GetLastError());
+        free(bytes);
+        return;
     }
-    
-    free(buffer);
+    HwidReadback hwid = {0};
+    if (hwid_read_smbios(bytes, received, &hwid) != 0) {
+        printf("  NOT VERIFIED: invalid SMBIOS table layout\n");
+    } else {
+        printf("  System serial: %s\n", hwid.system_serial[0] ? hwid.system_serial : "(not exposed)");
+        printf("  Board serial:  %s\n", hwid.board_serial[0] ? hwid.board_serial : "(not exposed)");
+        printf("  BIOS vendor:   %s\n", hwid.bios_vendor[0] ? hwid.bios_vendor : "(not exposed)");
+        printf("  BIOS version:  %s\n", hwid.bios_version[0] ? hwid.bios_version : "(not exposed)");
+    }
+    free(bytes);
 }
 
 // ============== 主函数 ==============
