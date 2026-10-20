@@ -1,6 +1,6 @@
 # Isolated safety tests
 
-These tests exercise a bounded SMBIOS-record parser against **synthetic byte arrays only** and a portable numeric configuration-value parser against synthetic strings. They do not read hardware identifiers, alter system state, inject into processes, or connect to a game or anti-cheat. The SMBIOS helper is not wired into the production HWID-changing path. The numeric helper is used by the configuration loader, and its isolated tests cover malformed and out-of-range values. Neither suite is a full application audit.
+These tests exercise a bounded SMBIOS-record parser against **synthetic byte arrays only**, a portable numeric configuration-value parser against synthetic strings, and a standalone lifecycle-controller reference against synthetic callbacks. They do not read hardware identifiers, alter system state, inject into processes, or connect to a game or anti-cheat. The SMBIOS helper is not wired into the production HWID-changing path. The numeric helper is used by the configuration loader, and its isolated tests cover malformed and out-of-range values. Neither suite is a full application audit.
 
 ## Build and run with CMake
 
@@ -32,5 +32,11 @@ Then run `parser_tests.exe` on Windows or `./parser_tests` on Linux/macOS.
 - 100,000 reproducible pseudo-random synthetic inputs
 - Verification that failed parses clear every output field
 - Numeric config parsing: whitespace, missing keys/colons, negative and nonnumeric values, and uint32 overflow
+- Lifecycle policy: idempotent initialization, reverse-order rollback, exceptions, invalid rollback plans, cleanup failures, and retry after failure
 
 The production SMBIOS parsing path remains unchanged and still requires a separate, carefully reviewed refactor. The config loader still uses a hand-written JSON-like parser rather than a complete JSON library. These tests are not a substitute for broader fuzzing or Windows VM testing.
+
+
+## Lifecycle-controller boundary
+
+`lifecycle_controller.hpp` is an isolated reference implementation used only by `test_lifecycle_controller.cpp`. It is not wired into the production DLL and does not call Windows APIs, install hooks, or alter hardware identifiers. Its tests exercise basic serialized state transitions and rollback behavior; they do not prove that the existing DLL lifecycle is safe. The production `DllMain` lifecycle remains unchanged pending a separate reviewed design and host-integration plan.
