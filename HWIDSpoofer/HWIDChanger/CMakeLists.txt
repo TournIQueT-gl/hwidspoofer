@@ -18,7 +18,7 @@ target_link_libraries(HWIDChanger PRIVATE kernel32 advapi32 iphlpapi user32)
 add_library(HWIDChangerHook SHARED hwid_dll.c)
 set_target_properties(HWIDChangerHook PROPERTIES OUTPUT_NAME "HWIDChanger" PREFIX "")
 target_link_libraries(HWIDChangerHook PRIVATE kernel32 advapi32 iphlpapi)
-add_executable(HWIDTest hwid_test.c)
+add_executable(HWIDTest hwid_test.c hwid_readback.c)
 target_link_libraries(HWIDTest PRIVATE kernel32 advapi32 iphlpapi)
 install(TARGETS HWIDChanger HWIDChangerHook HWIDTest
     RUNTIME DESTINATION bin LIBRARY DESTINATION bin)
