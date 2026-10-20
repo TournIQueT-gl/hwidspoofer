@@ -90,3 +90,24 @@ ComputerNameKey and live ActiveName intentionally remain separate because name c
 5. Provide a single before/after/restore report and show unsupported identifiers honestly. Changing an OS/driver report is not changing physical firmware.
 
 **This branch is a draft, not a release.**
+
+
+## Integrated Sandbox MAC experiment (new, NOT yet validated in a new build)
+
+The main v2 console now offers [8] MAC override/restore and the following CLI actions:
+
+- `--mac-test`: apply an adapter-supported random local-unicast MAC, verify it, and immediately restore it.
+- `--mac-apply`: apply a random MAC to the first active adapter and persist the original before the attempt.
+- `--mac-status`: show saved original and current adapter MAC.
+- `--mac-restore`: restore the original address and verify readback.
+- `--show-hardware`: invoke the read-only Windows hardware information report (also menu [5]).
+
+These features run bundled PowerShell companions, not a kernel driver. Both build.bat and CMake copy these companions into the executable directory. MAC write actions are restricted to the disposable Windows Sandbox user and may temporarily disconnect the adapter. The durable adapter backup is at LOCALAPPDATA/HWIDChanger/mac-original.json. An existing backup blocks subsequent apply attempts. If recovery fails, discard that Sandbox session. Never delete the backup manually to work around a recovery failure.
+
+The old menu [3] and CLI global driver mode are explicitly unavailable on the draft branch. The legacy in-process hooks and process injection are marked experimental and have not been release-qualified.
+
+**Run a clean Windows Sandbox integration test:**
+
+With MSYS2 UCRT64 GCC present, run tools/SmokeTest-Sandbox.ps1. It downloads the current branch, builds it, checks menu [5] via --show-hardware, and performs --mac-test with independent before/after readback. The log is written to Desktop/HWID-App-Check/smoke-result.txt.
+
+No success is claimed for BIOS firmware, motherboard firmware, physical disk serial or third-party API interception. The main program's generated config does not demonstrate those hardware IDs changed.
