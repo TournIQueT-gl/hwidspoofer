@@ -74,11 +74,19 @@ if %errorlevel% neq 0 (
 )
 cd ..\..
 
+:: Configuration is already copied by CMake configure_file into bin/.
+:: Avoid copying to a non-existent Release subdirectory.
 :: 复制配置文件
 echo.
 echo [4/4] Copying config files...
-copy Config\hwid_config.json build\x64\bin\Release\ >nul 2>&1
-copy Config\hwid_config.json build\x86\bin\Release\ >nul 2>&1
+if not exist "build\x64\bin\hwid_config.json" (
+    echo [ERROR] Missing x64 configuration output
+    exit /b 1
+)
+if not exist "build\x86\bin\hwid_config.json" (
+    echo [ERROR] Missing x86 configuration output
+    exit /b 1
+)
 
 echo.
 echo ============================================
