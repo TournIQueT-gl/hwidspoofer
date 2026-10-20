@@ -6,6 +6,8 @@
 #include <chrono>
 #include <iomanip>
 #include <algorithm>
+#include <charconv>
+#include <cctype>
 
 // 简单的JSON解析（不依赖第三方库）
 // 实际项目中建议使用nlohmann/json
@@ -51,19 +53,34 @@ bool extract_json_bool(const std::string& json, const std::string& key, bool def
 }
 
 uint32_t extract_json_uint(const std::string& json, const std::string& key, uint32_t default_value = 0) {
-    std::string search = "\"" + key + "\"";
+    const std::string search = "\"" + key + "\"";
     size_t pos = json.find(search);
     if (pos == std::string::npos) return default_value;
-    
-    pos = json.find(":", pos);
+
+    pos = json.find(':', pos + search.size());
     if (pos == std::string::npos) return default_value;
-    
-    // 跳过空白
-    while (pos < json.length() && !isdigit(json[pos]) && json[pos] != '-') {
-        pos++;
+    ++pos;
+
+    while (pos < json.size() &&
+           std::isspace(static_cast<unsigned char>(json[pos]))) {
+        ++pos;
     }
-    
-    return static_cast<uint32_t>(std::stoul(json.substr(pos)));
+
+    const size_t start = pos;
+    while (pos < json.size() && json[pos] >= '0' && json[pos] <= '9') {
+        ++pos;
+    }
+    if (start == pos) return default_value;
+
+    uint32_t value = 0;
+    const char* first = json.data() + start;
+    const char* last = json.data() + pos;
+    const auto parsed = std::from_chars(first, last, value, 10);
+    if (parsed.ec != std::errc{} || parsed.ptr != last) {
+        return default_value;
+    }
+
+    return value;
 }
 
 bool Config::load_from_file(const std::string& filepath) {
