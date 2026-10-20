@@ -4,10 +4,12 @@ project(HWIDChanger C)
 # 使用静态运行时库（减少依赖）
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-# 优化选项
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /O2 /GL /GS- /Gy")
-set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG /OPT:REF /OPT:ICF")
-
+# Release optimization. Keep the MSVC stack security cookie enabled (/GS).
+# Do not disable compiler security checks to chase marginal performance gains.
+if(MSVC)
+    string(APPEND CMAKE_C_FLAGS_RELEASE " /O2 /GL /GS /Gy")
+    string(APPEND CMAKE_EXE_LINKER_FLAGS_RELEASE " /LTCG /OPT:REF /OPT:ICF")
+endif()
 # 定义
 add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX -D_CRT_SECURE_NO_WARNINGS)
 
