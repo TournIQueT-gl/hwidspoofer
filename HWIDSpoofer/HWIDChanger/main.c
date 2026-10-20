@@ -57,9 +57,9 @@ static void print_menu(void) {
     set_color(COLOR_DEFAULT);
     printf("  --------------------------------------------------------\n");
     printf("  [1] Generate random HWID\n");
-    printf("  [2] Apply spoof (to current process)\n");
-    printf("  [3] Load kernel driver\n");
-    printf("  [4] Inject into process\n");
+    printf("  [2] In-process API hooks (experimental)\n");
+    printf("  [3] Kernel driver (not available)\n");
+    printf("  [4] Process injection (experimental)\n");
     printf("  [5] Show real hardware info\n");
     printf("  [6] Load config from file\n");
     printf("  [7] Save config to file\n");
@@ -291,7 +291,7 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             printf("Options:\n");
             printf("  -r, --random           Generate random HWID\n");
             printf("  -a, --apply            Apply spoof to current process\n");
-            printf("  -d, --driver           Load kernel driver\n");
+            printf("  -d, --driver           Not available in this build\n");
             printf("  -p, --pid <PID>        Inject into process by PID\n");
             printf("  -n, --name <NAME>      Inject into process by name\n");
             printf("  -c, --config <FILE>    Load config from file\n");
@@ -304,8 +304,8 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             printf("  --mac-status           Display current MAC override status\n");
             printf("  --mac-test             Apply, verify, and immediately restore MAC\n");
             printf("\nGlobal Mode (affects ALL programs):\n");
-            printf("  --enable-global        Enable global interception (kernel driver)\n");
-            printf("  --disable-global       Disable global interception\n");
+            printf("  --enable-global        Not available (unvalidated driver)\n");
+            printf("  --disable-global       Not available (unvalidated driver)\n");
             printf("  --registry-global      Modify system registry (permanent)\n");
             printf("  --restore-registry     Restore original registry values\n");
             printf("\nUsermode Full System Spoof:\n");
