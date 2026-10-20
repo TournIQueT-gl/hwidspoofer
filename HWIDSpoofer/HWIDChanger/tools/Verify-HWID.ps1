@@ -31,6 +31,10 @@ $sample = [ordered]@{
 $path = Join-Path $ReportDir ("$Phase.json")
 $sample | ConvertTo-Json -Depth 3 | Set-Content -Encoding UTF8 $path
 Write-Host "Saved $Phase measurements: $path"
+if ($Phase -eq 'Before') {
+    Write-Host 'Real values currently reported by Windows (read-only):'
+    $sample.GetEnumerator() | Format-Table -AutoSize -Wrap
+}
 if ($Phase -eq 'After' -or $Phase -eq 'Restored') {
     $baselinePath = Join-Path $ReportDir 'Before.json'
     if (-not (Test-Path $baselinePath)) {
