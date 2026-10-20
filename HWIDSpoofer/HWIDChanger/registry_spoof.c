@@ -161,6 +161,7 @@ int hwid_restore_registry(void)
 int hwid_apply_registry_global(const HwidConfig* config)
 {
     int success = 0;
+    int failures = 0;
     
     /* Fail closed: no permanent writes unless a validated, durable backup exists. */
     if (hwid_backup_registry() != 0 || hwid_save_backup(BACKUP_FILE) != 0) {
@@ -178,6 +179,7 @@ int hwid_apply_registry_global(const HwidConfig* config)
             success++;
         } else {
             printf("    [FAIL] MachineGuid (need admin)\n");
+            failures++;
         }
     }
     
@@ -187,6 +189,9 @@ int hwid_apply_registry_global(const HwidConfig* config)
             "ProductId", config->product_id) == 0) {
             printf("    [OK] ProductId modified\n");
             success++;
+        } else {
+            fprintf(stderr, "    [FAIL] ProductId write\n");
+            failures++;
         }
     }
     
@@ -194,10 +199,17 @@ int hwid_apply_registry_global(const HwidConfig* config)
     if (config->computer_name[0]) {
         if (reg_write_string(HKEY_LOCAL_MACHINE, REG_COMPUTER_NAME,
             "ComputerName", config->computer_name) == 0) {
-            reg_write_string(HKEY_LOCAL_MACHINE, REG_ACTIVE_NAME,
-                "ComputerName", config->computer_name);
-            printf("    [OK] ComputerName modified\n");
-            success++;
+            if (reg_write_string(HKEY_LOCAL_MACHINE, REG_ACTIVE_NAME,
+                "ComputerName", config->computer_name) == 0) {
+                printf("    [OK] ComputerName modified\n");
+                success++;
+            } else {
+                fprintf(stderr, "    [FAIL] ActiveComputerName write\n");
+                failures++;
+            }
+        } else {
+            fprintf(stderr, "    [FAIL] ComputerName write\n");
+            failures++;
         }
     }
     
@@ -206,8 +218,13 @@ int hwid_apply_registry_global(const HwidConfig* config)
        do not perform these irreversible-by-this-tool writes. */
     printf("    [SKIP] HwProfileGuid / adapter MAC registry changes (not safely backed up)\n");
     
+    if (failures) {
+        fprintf(stderr, "  [ERROR] %d write(s) failed; attempting rollback.\n", failures);
+        if (hwid_restore_registry() != 0)
+            fprintf(stderr, "  [ERROR] Rollback incomplete. Use --restore-registry as administrator.\n");
+        return -1;
+    }
     printf("  Applied %d registry modifications\n", success);
-    
     return success > 0 ? 0 : -1;
 }
 
