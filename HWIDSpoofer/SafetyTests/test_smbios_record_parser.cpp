@@ -50,6 +50,28 @@ int main() {
     CHECK(parse_smbios_record(end_record.data(), end_record.size(), view)
           == ParseResult::end_of_table);
 
+    // Deterministic malformed-input sweep: every byte value, short spans,
+    // and changing header lengths. Returned views must stay within the span.
+    for (std::size_t size = 0; size <= 64; ++size) {
+        for (unsigned value = 0; value <= 255; ++value) {
+            std::array<std::uint8_t, 64> bytes{};
+            bytes.fill(static_cast<std::uint8_t>(value));
+            if (size >= 2) {
+                bytes[0] = static_cast<std::uint8_t>(value);
+                bytes[1] = static_cast<std::uint8_t>((value + size) & 0xffU);
+            }
+            const auto result = parse_smbios_record(bytes.data(), size, view);
+            if (result != ParseResult::invalid) {
+                CHECK(view.formatted == bytes.data());
+                CHECK(view.formatted_length >= 4);
+                CHECK(view.formatted_length <= size);
+                CHECK(view.total_length >= view.formatted_length);
+                CHECK(view.total_length <= size);
+                CHECK(view.strings == bytes.data() + view.formatted_length);
+            }
+        }
+    }
+
     if (failures != 0) {
         std::cerr << failures << " test(s) failed.\n";
         return 1;
