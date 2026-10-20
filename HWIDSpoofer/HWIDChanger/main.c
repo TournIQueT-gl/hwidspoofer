@@ -64,7 +64,7 @@ static void print_menu(void) {
     printf("  [6] Load config from file\n");
     printf("  [7] Save config to file\n");
     set_color(COLOR_CYAN);
-    printf("  [8] Enable GLOBAL mode (all programs)\n");
+    printf("  [8] MAC override / restore (Windows Sandbox)\n");
     printf("  [9] Apply registry changes (permanent)\n");
     set_color(COLOR_DEFAULT);
     printf("  [0] Exit\n");
@@ -74,29 +74,54 @@ static void print_menu(void) {
     set_color(COLOR_DEFAULT);
 }
 
+// Run a bundled, read-only Windows PowerShell companion script.
+// The script name and arguments are fixed by the application, not user input.
+static int run_companion_script(const char* name, const char* args) {
+    char script[MAX_PATH], powershell[MAX_PATH], command[2*MAX_PATH+160];
+    DWORD n=GetModuleFileNameA(NULL,script,MAX_PATH);
+    if (!n || n>=MAX_PATH) { fprintf(stderr,"[ERROR] Cannot locate application folder.\n"); return 1; }
+    char* slash=strrchr(script,'\\');
+    if (!slash || strlen(name)>=MAX_PATH-(size_t)(slash+1-script)) {
+        fprintf(stderr,"[ERROR] Script path too long.\n"); return 1;
+    }
+    strcpy(slash+1,name);
+    if (GetFileAttributesA(script)==INVALID_FILE_ATTRIBUTES) {
+        fprintf(stderr,"[ERROR] Required companion missing: %s\n",script);
+        fprintf(stderr,"Rebuild with build.bat so the scripts are copied to bin.\n");
+        return 1;
+    }
+    n=GetSystemDirectoryA(powershell,MAX_PATH);
+    if (!n || n>=MAX_PATH ||
+        strlen(powershell)+strlen("\\WindowsPowerShell\\v1.0\\powershell.exe")>=MAX_PATH) {
+        fprintf(stderr,"[ERROR] Cannot locate Windows PowerShell.\n"); return 1;
+    }
+    strcat(powershell,"\\WindowsPowerShell\\v1.0\\powershell.exe");
+    if (snprintf(command,sizeof(command),
+                 "\"%s\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"%s\" %s",
+                 powershell,script,args)<0 || strlen(command)>=sizeof(command)-1) {
+        fprintf(stderr,"[ERROR] Script command too long.\n"); return 1;
+    }
+    STARTUPINFOA si={0};
+    PROCESS_INFORMATION pi={0};
+    si.cb=sizeof(si);
+    if (!CreateProcessA(powershell,command,NULL,NULL,FALSE,0,NULL,NULL,&si,&pi)) {
+        fprintf(stderr,"[ERROR] PowerShell launch failed: %lu\n",(unsigned long)GetLastError());
+        return 1;
+    }
+    WaitForSingleObject(pi.hProcess,INFINITE);
+    DWORD exitCode=1;
+    if (!GetExitCodeProcess(pi.hProcess,&exitCode)) exitCode=1;
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    return exitCode==0?0:1;
+}
+
 static void show_real_hwid(void) {
-    char buf[256];
-    uint8_t mac[6];
-    
-    set_color(COLOR_WHITE);
-    printf("\n  Real Hardware Information:\n");
-    set_color(COLOR_DEFAULT);
-    printf("  --------------------------------------------------------\n");
-    
-    if (hwid_get_real_disk_serial(buf, sizeof(buf)) == 0) {
-        printf("  Disk Serial:      %s\n", buf);
-    } else {
-        printf("  Disk Serial:      (failed to read)\n");
+    printf("\n  Real Windows hardware and identifier readings (read-only):\n\n");
+    if (run_companion_script("Verify-HWID.ps1","-Phase Before")!=0) {
+        fprintf(stderr,"  [ERROR] Hardware information query failed.\n");
     }
-    
-    if (hwid_get_real_mac(mac) == 0) {
-        printf("  MAC Address:      %02X:%02X:%02X:%02X:%02X:%02X\n",
-               mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    } else {
-        printf("  MAC Address:      (failed to read)\n");
-    }
-    
-    printf("  --------------------------------------------------------\n");
+    printf("\n  Note: firmware serials are not physical hardware changes.\n");
 }
 
 static DWORD get_pid_by_name(const char* name) {
@@ -192,6 +217,21 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
                 return 1;
             }
         }
+        else if (strcmp(argv[i], "--mac-apply") == 0) {
+            if (run_companion_script("MacOverride.ps1","-Action Apply") != 0) return 1;
+        }
+        else if (strcmp(argv[i], "--mac-restore") == 0) {
+            if (run_companion_script("MacOverride.ps1","-Action Restore") != 0) return 1;
+        }
+        else if (strcmp(argv[i], "--mac-status") == 0) {
+            if (run_companion_script("MacOverride.ps1","-Action Status") != 0) return 1;
+        }
+        else if (strcmp(argv[i], "--mac-test") == 0) {
+            if (run_companion_script("MacOverride.ps1","-Action Test") != 0) return 1;
+        }
+        else if (strcmp(argv[i], "--show-hardware") == 0) {
+            if (run_companion_script("Verify-HWID.ps1","-Phase Before") != 0) return 1;
+        }
         else if (strcmp(argv[i], "--registry-global") == 0) {
             if (hwid_apply_registry_global(config) == 0) {
                 printf("Registry modified\n");
@@ -270,6 +310,11 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             printf("  -s, --save <FILE>      Save config to file\n");
             printf("  -q, --quiet            Quiet mode\n");
             printf("  -h, --help             Show this help\n");
+            printf("  --show-hardware        Read-only Windows hardware report\n");
+            printf("  --mac-apply            Apply temporary MAC override in Windows Sandbox\n");
+            printf("  --mac-restore          Restore the saved original MAC in Sandbox\n");
+            printf("  --mac-status           Display current MAC override status\n");
+            printf("  --mac-test             Apply, verify, and immediately restore MAC\n");
             printf("\nGlobal Mode (affects ALL programs):\n");
             printf("  --enable-global        Enable global interception (kernel driver)\n");
             printf("  --disable-global       Disable global interception\n");
@@ -400,50 +445,27 @@ static int run_interactive(HwidConfig* config) {
                 break;
             }
                 
-            case 8: {  // 全局模式
-                set_color(COLOR_YELLOW);
-                printf("\n  === GLOBAL MODE ===\n");
-                printf("  This will affect ALL programs on the system.\n");
-                printf("  Requires: Admin rights + Kernel driver + Test signing mode\n\n");
-                set_color(COLOR_DEFAULT);
-                
-                printf("  Continue? [Y/N]: ");
-                int confirm = _getch();
-                printf("%c\n", confirm);
-                
-                if (confirm == 'Y' || confirm == 'y') {
-                    set_color(COLOR_YELLOW);
-                    printf("\n  Enabling global mode...\n");
-                    set_color(COLOR_DEFAULT);
-                    
-                    // 先加载驱动
-                    if (hwid_load_driver() == 0) {
-                        hwid_driver_set_config(config);
-                        
-                        if (hwid_enable_global_mode(config) == 0) {
-                            set_color(COLOR_GREEN);
-                            printf("  [OK] Global mode ENABLED!\n");
-                            printf("  All programs will now see spoofed HWIDs.\n");
-                        } else {
-                            set_color(COLOR_RED);
-                            printf("  [ERROR] Failed to enable global mode\n");
-                        }
-                    } else {
-                        set_color(COLOR_RED);
-                        printf("  [ERROR] Failed to load driver\n");
-                        printf("  Make sure test signing is enabled:\n");
-                        printf("    bcdedit /set testsigning on\n");
-                    }
-                }
-                set_color(COLOR_DEFAULT);
+            case 8: {
+                printf("\n  MAC override / recovery - Windows Sandbox only.\n");
+                printf("  [A] Apply  [R] Restore original  [T] Test and restore  [S] Status\n");
+                printf("  Choose action: ");
+                int action=_getch();
+                printf("%c\n",action);
+                const char* operation=NULL;
+                if (action=='A' || action=='a') operation="-Action Apply";
+                else if (action=='R' || action=='r') operation="-Action Restore";
+                else if (action=='T' || action=='t') operation="-Action Test";
+                else if (action=='S' || action=='s') operation="-Action Status";
+                if (operation && run_companion_script("MacOverride.ps1",operation)!=0)
+                    fprintf(stderr,"  [ERROR] MAC action failed. Check backup/driver support.\n");
                 break;
             }
-            
+
             case 9: {  // 注册表修改
                 set_color(COLOR_YELLOW);
                 printf("\n  === REGISTRY MODIFICATION ===\n");
                 printf("  This will permanently modify system registry values.\n");
-                printf("  Affects: MachineGuid, ProductId, ComputerName, MAC addresses\n\n");
+                printf("  Affects: MachineGuid, ProductId, ComputerName registry values ONLY\n\n");
                 set_color(COLOR_DEFAULT);
                 
                 printf("  Continue? [Y/N]: ");
