@@ -41,7 +41,7 @@ inline ParseResult parse_smbios_record(
     // The string-set terminator must fit entirely inside the provided span.
     std::size_t terminator = formatted_length;
     bool found = false;
-    while (terminator + 1 < size) {
+    while (terminator < size && size - terminator >= 2) {
         if (data[terminator] == 0 && data[terminator + 1] == 0) {
             found = true;
             break;
