@@ -34,7 +34,7 @@ static void print_banner(void) {
 
 static void print_config(const HwidConfig* config) {
     set_color(COLOR_WHITE);
-    printf("  Current Configuration:\n");
+    printf("  Generated target configuration (not verified as applied):\n");
     set_color(COLOR_DEFAULT);
     printf("  --------------------------------------------------------\n");
     
@@ -48,6 +48,7 @@ static void print_config(const HwidConfig* config) {
            config->mac_address[0], config->mac_address[1], config->mac_address[2],
            config->mac_address[3], config->mac_address[4], config->mac_address[5]);
     printf("  CPU ID:           %s\n", config->cpu_id);
+    printf("  MAC override [8] generates and verifies its own adapter MAC.\n");
     printf("  --------------------------------------------------------\n");
 }
 
