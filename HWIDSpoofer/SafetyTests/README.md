@@ -29,5 +29,7 @@ Then run `parser_tests.exe` on Windows or `./parser_tests` on Linux/macOS.
 - A well-formed synthetic record
 - End-of-table record recognition
 - A deterministic sweep of short malformed inputs and output-bound invariants
+- 100,000 reproducible pseudo-random synthetic inputs
+- Verification that failed parses clear every output field
 
 The production SMBIOS parsing path remains unchanged and still requires a separate, carefully reviewed refactor. These tests are not a substitute for broader fuzzing or Windows VM testing.
