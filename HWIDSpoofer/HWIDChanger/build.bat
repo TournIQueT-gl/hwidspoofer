@@ -43,5 +43,11 @@ for %%F in (Verify-HWID.ps1 MacOverride.ps1) do (
         exit /b 1
     )
 )
+echo [TEST] Checking SMBIOS and storage descriptor parsing...
+gcc -std=c11 -Wall -Wextra -o "%BIN%\HWIDReadbackTests.exe" hwid_readback.c tests\test_readback.c
+if errorlevel 1 exit /b 1
+"%BIN%\HWIDReadbackTests.exe"
+if errorlevel 1 exit /b 1
+
 echo [OK] v2.0 build completed.
 exit /b 0
