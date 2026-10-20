@@ -22,7 +22,7 @@ gcc -O2 -s -shared -static -ffunction-sections -fdata-sections "-Wl,--gc-section
 if errorlevel 1 exit /b 1
 
 echo [3/4] Building read-only HWIDTest.exe...
-gcc -O2 -s -static -o "%BIN%\HWIDTest.exe" hwid_test.c -liphlpapi -ladvapi32
+gcc -O2 -s -static -o "%BIN%\HWIDTest.exe" hwid_test.c hwid_readback.c -liphlpapi -ladvapi32
 if errorlevel 1 exit /b 1
 
 for %%F in (HWIDChanger.exe HWIDChanger.dll HWIDTest.exe) do (
