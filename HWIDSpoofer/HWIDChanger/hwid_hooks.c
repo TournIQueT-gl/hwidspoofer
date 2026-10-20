@@ -512,12 +512,12 @@ int hwid_get_real_disk_serial(char* buf, int len) {
     BYTE out[1024] = {0}; DWORD ret;
     struct { DWORD PropertyId; DWORD QueryType; BYTE Param[1]; } q = {0};
     
-    EnterCriticalSection(&g_cs);
     int was = hook_DeviceIoControl.enabled;
+    if (was) EnterCriticalSection(&g_cs);
     if (was) hotpatch_remove(&hook_DeviceIoControl);
     BOOL ok = DeviceIoControl(h, 0x2D1400, &q, sizeof(q), out, sizeof(out), &ret, NULL);
     if (was) hotpatch_install(&hook_DeviceIoControl);
-    LeaveCriticalSection(&g_cs);
+    if (was) LeaveCriticalSection(&g_cs);
     
     CloseHandle(h);
     if (ok) { DWORD off = *(DWORD*)(out + 24); if (off && off < ret) { strncpy(buf, (char*)(out + off), len - 1); buf[len-1] = 0; return 0; } }
@@ -526,12 +526,12 @@ int hwid_get_real_disk_serial(char* buf, int len) {
 
 int hwid_get_real_mac(uint8_t* mac) {
     IP_ADAPTER_INFO a[16]; ULONG sz = sizeof(a);
-    EnterCriticalSection(&g_cs);
     int was = hook_GetAdaptersInfo.enabled;
+    if (was) EnterCriticalSection(&g_cs);
     if (was) hotpatch_remove(&hook_GetAdaptersInfo);
     DWORD r = GetAdaptersInfo(a, &sz);
     if (was) hotpatch_install(&hook_GetAdaptersInfo);
-    LeaveCriticalSection(&g_cs);
+    if (was) LeaveCriticalSection(&g_cs);
     if (r == ERROR_SUCCESS && a[0].AddressLength == 6) { memcpy(mac, a[0].Address, 6); return 0; }
     return -1;
 }
