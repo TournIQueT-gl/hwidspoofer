@@ -193,8 +193,7 @@ int hwid_disable_appinit_injection(void)
                            (g_backup.present_flags & HAS_DLLS) != 0) != 0;
     errors += apply_value("LoadAppInit_DLLs", REG_DWORD, &g_backup.original_load,
                            sizeof(DWORD), (g_backup.present_flags & HAS_LOAD) != 0) != 0;
-    errors += apply_value("RequireSignedAppInit_DLLs", REG_DWORD, &g_backup.original_signed,
-                           sizeof(DWORD), (g_backup.present_flags & HAS_SIGNED) != 0) != 0;
+    /* We never modify RequireSignedAppInit_DLLs; leave any third-party setting intact. */
     if (errors) {
         fprintf(stderr, "  [ERROR] AppInit restore incomplete (%d registry errors).\n", errors);
         return -1;
