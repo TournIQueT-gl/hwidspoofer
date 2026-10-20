@@ -1,0 +1,44 @@
+name: Safety parser tests
+
+on:
+  push:
+    branches: [master, safety-hardening]
+  pull_request:
+    branches: [master, safety-hardening]
+  workflow_dispatch:
+
+jobs:
+  parser-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure compiler
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build parser tests (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        working-directory: HWIDSpoofer/SafetyTests
+        run: cl /nologo /std:c++17 /EHsc /W4 /WX test_smbios_record_parser.cpp /Fe:parser_tests.exe
+
+      - name: Run parser tests (Windows)
+        if: runner.os == 'Windows'
+        working-directory: HWIDSpoofer/SafetyTests
+        run: .\parser_tests.exe
+
+      - name: Build parser tests (Linux)
+        if: runner.os == 'Linux'
+        working-directory: HWIDSpoofer/SafetyTests
+        run: c++ -std=c++17 -Wall -Wextra -Wpedantic -Werror test_smbios_record_parser.cpp -o parser_tests
+
+      - name: Run parser tests (Linux)
+        if: runner.os == 'Linux'
+        working-directory: HWIDSpoofer/SafetyTests
+        run: ./parser_tests
