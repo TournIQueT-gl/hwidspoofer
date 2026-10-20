@@ -6,8 +6,7 @@
 #include <chrono>
 #include <iomanip>
 #include <algorithm>
-#include <charconv>
-#include <cctype>
+#include "config_value_parser.h"
 
 // 简单的JSON解析（不依赖第三方库）
 // 实际项目中建议使用nlohmann/json
@@ -53,34 +52,7 @@ bool extract_json_bool(const std::string& json, const std::string& key, bool def
 }
 
 uint32_t extract_json_uint(const std::string& json, const std::string& key, uint32_t default_value = 0) {
-    const std::string search = "\"" + key + "\"";
-    size_t pos = json.find(search);
-    if (pos == std::string::npos) return default_value;
-
-    pos = json.find(':', pos + search.size());
-    if (pos == std::string::npos) return default_value;
-    ++pos;
-
-    while (pos < json.size() &&
-           std::isspace(static_cast<unsigned char>(json[pos]))) {
-        ++pos;
-    }
-
-    const size_t start = pos;
-    while (pos < json.size() && json[pos] >= '0' && json[pos] <= '9') {
-        ++pos;
-    }
-    if (start == pos) return default_value;
-
-    uint32_t value = 0;
-    const char* first = json.data() + start;
-    const char* last = json.data() + pos;
-    const auto parsed = std::from_chars(first, last, value, 10);
-    if (parsed.ec != std::errc{} || parsed.ptr != last) {
-        return default_value;
-    }
-
-    return value;
+    return config_value_parser::extract_json_uint(json, key, default_value);
 }
 
 bool Config::load_from_file(const std::string& filepath) {
