@@ -1,7 +1,7 @@
 # Read-only HWID report. No registry writes, hooks, driver loads or device restarts.
 [CmdletBinding()]
 param(
-    [ValidateSet('Before','After')]
+    [ValidateSet('Before','After','Restored')]
     [string]$Phase = 'Before',
     [string]$ReportDir = (Join-Path $env:USERPROFILE 'Desktop\HWID-Verification')
 )
@@ -31,7 +31,7 @@ $sample = [ordered]@{
 $path = Join-Path $ReportDir ("$Phase.json")
 $sample | ConvertTo-Json -Depth 3 | Set-Content -Encoding UTF8 $path
 Write-Host "Saved $Phase measurements: $path"
-if ($Phase -eq 'After') {
+if ($Phase -eq 'After' -or $Phase -eq 'Restored') {
     $baselinePath = Join-Path $ReportDir 'Before.json'
     if (-not (Test-Path $baselinePath)) {
         Write-Warning 'No Before.json exists; run -Phase Before first.'
@@ -47,6 +47,12 @@ if ($Phase -eq 'After') {
         [PSCustomObject]@{ Identifier=$property; Result=$state; Before=$a; After=$b }
     }
     $rows | Format-Table -AutoSize -Wrap
-    $rows | Export-Csv -NoTypeInformation -Encoding UTF8 (Join-Path $ReportDir 'Comparison.csv')
+    $csvName = if ($Phase -eq 'Restored') { 'Restore-Comparison.csv' } else { 'Comparison.csv' }
+    $rows | Export-Csv -NoTypeInformation -Encoding UTF8 (Join-Path $ReportDir $csvName)
+    if ($Phase -eq 'Restored') {
+        $notRestored = @($rows | Where-Object { $_.Result -eq 'CHANGED' })
+        if ($notRestored.Count -gt 0) { Write-Warning "$($notRestored.Count) values differ from baseline after restore" }
+        else { Write-Host 'Restore verification: All available readings match baseline.' }
+    }
     Write-Host 'Read-only comparison complete. Registry and WMI/API readings are different views.'
 }
