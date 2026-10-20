@@ -160,12 +160,8 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             }
         }
         else if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--driver") == 0) {
-            if (hwid_load_driver() == 0) {
-                printf("Driver loaded\n");
-            } else {
-                printf("Failed to load driver\n");
-                return 1;
-            }
+            fprintf(stderr,"Kernel driver mode is unavailable: no validated driver is bundled.\n");
+            return 2;
         }
         else if ((strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--pid") == 0) && i + 1 < argc) {
             DWORD pid = atoi(argv[++i]);
@@ -202,20 +198,12 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             // 静默模式
         }
         else if (strcmp(argv[i], "--enable-global") == 0) {
-            if (hwid_enable_global_mode(config) == 0) {
-                printf("Global mode enabled\n");
-            } else {
-                printf("Failed to enable global mode\n");
-                return 1;
-            }
+            fprintf(stderr,"Kernel global mode is unavailable in this build.\n");
+            return 2;
         }
         else if (strcmp(argv[i], "--disable-global") == 0) {
-            if (hwid_disable_global_mode() == 0) {
-                printf("Global mode disabled\n");
-            } else {
-                printf("Failed to disable global mode\n");
-                return 1;
-            }
+            fprintf(stderr,"Kernel global mode is unavailable in this build.\n");
+            return 2;
         }
         else if (strcmp(argv[i], "--mac-apply") == 0) {
             if (run_companion_script("MacOverride.ps1","-Action Apply") != 0) return 1;
@@ -366,19 +354,9 @@ static int run_interactive(HwidConfig* config) {
                 set_color(COLOR_DEFAULT);
                 break;
                 
-            case 3:  // 加载驱动
-                set_color(COLOR_YELLOW);
-                printf("\n  Loading kernel driver...\n");
-                set_color(COLOR_DEFAULT);
-                if (hwid_load_driver() == 0) {
-                    hwid_driver_set_config(config);
-                    set_color(COLOR_GREEN);
-                    printf("  [OK] Driver loaded and configured!\n");
-                } else {
-                    set_color(COLOR_RED);
-                    printf("  [ERROR] Failed to load driver (need admin rights and test mode)\n");
-                }
-                set_color(COLOR_DEFAULT);
+            case 3:
+                printf("\n  [UNAVAILABLE] Kernel driver is not included or validated.\n");
+                printf("  Do not enable Windows test signing for this build.\n");
                 break;
                 
             case 4: {  // 注入进程
