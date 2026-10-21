@@ -30,3 +30,24 @@ jobs:
       - name: Preview guest hardware profile without launching QEMU
         shell: powershell
         run: '& "HWIDSpoofer/HWIDChanger/tests/Test-VirtualHardwareProfile.ps1"'
+
+  build-v2-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MinGW-w64 GCC using MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: mingw-w64-ucrt-x86_64-gcc
+      - name: Compile EXE, DLL, hardware reader and bundled helpers
+        shell: cmd
+        run: |
+          set "PATH=C:\msys64\ucrt64\bin;%PATH%"
+          cd /d HWIDSpoofer\HWIDChanger
+          call build.bat
+      - name: Verify guest-only VM mode is exposed
+        shell: powershell
+        run: |
+          & 'HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe' --help | Select-String --pattern 'vm-preview', 'vm-run' -SimpleMatch
