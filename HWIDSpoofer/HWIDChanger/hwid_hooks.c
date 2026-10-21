@@ -512,7 +512,7 @@ int hwid_driver_set_config(const HwidConfig* config) {
 int hwid_get_real_disk_serial(char* buf, int len) {
     if (!buf || len < 2) return -1;
     buf[0] = 0;
-    HANDLE device = CreateFileW(L"\\.\PhysicalDrive0", 0,
+    HANDLE device = CreateFileW(L"\\\\.\\PhysicalDrive0", 0,
                      FILE_SHARE_READ | FILE_SHARE_WRITE,
                      NULL, OPEN_EXISTING, 0, NULL);
     if (device == INVALID_HANDLE_VALUE) return -1;
