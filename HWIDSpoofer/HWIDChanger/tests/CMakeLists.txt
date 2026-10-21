@@ -29,3 +29,11 @@ else()
     target_compile_options(hwid_readback_stress PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 add_test(NAME readback_stress COMMAND hwid_readback_stress)
+
+# Pure preview validation: does not boot a VM or modify any hardware.
+find_program(WINDOWS_POWERSHELL NAMES powershell pwsh)
+if(WINDOWS_POWERSHELL)
+    add_test(NAME qemu_profile_preview
+        COMMAND "${WINDOWS_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass
+        -File "${CMAKE_CURRENT_SOURCE_DIR}/Test-VirtualHardwareProfile.ps1")
+endif()
