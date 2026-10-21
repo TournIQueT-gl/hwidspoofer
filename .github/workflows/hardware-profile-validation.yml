@@ -60,3 +60,14 @@ jobs:
         run: |
           & 'HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe' --vm-preview 'C:\VirtualLab\guest.qcow2'
           if ($LASTEXITCODE -ne 0) { throw 'HWIDChanger virtual guest preview failed.' }
+      - name: Verify repeatable saved guest identifiers
+        shell: powershell
+        run: |
+          $exe='HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe'
+          $profile=Join-Path $env:TEMP 'HWIDChanger-CI-VirtualLab.cfg'
+          & $exe -r -s $profile
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $profile)) { throw 'VM profile save failed.' }
+          & $exe --config $profile --vm-preview 'C:\VirtualLab\guest.qcow2'
+          if ($LASTEXITCODE -ne 0) { throw 'Saved VM profile could not be reloaded.' }
+          Remove-Item -LiteralPath $profile -Force
+
