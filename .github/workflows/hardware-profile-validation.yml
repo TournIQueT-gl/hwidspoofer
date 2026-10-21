@@ -62,7 +62,7 @@ jobs:
           public static class HwidSafeLoader {
             [DllImport("kernel32.dll", EntryPoint="LoadLibraryW", CharSet=CharSet.Unicode, SetLastError=true)]
             public static extern IntPtr Load(string path);
-            [DllImport("kernel32.dll", SetLastError=true)]
+            [DllImport("kernel32.dll", EntryPoint="FreeLibrary", SetLastError=true)]
             public static extern bool Unload(IntPtr module);
           }
           '@
