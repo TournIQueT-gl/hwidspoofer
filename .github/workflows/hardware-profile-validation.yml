@@ -54,6 +54,16 @@ jobs:
           set "PATH=C:\msys64\ucrt64\bin;%PATH%"
           cd /d HWIDSpoofer\HWIDChanger
           call build.bat
+      - name: Verify supported CMake build and CTest on Windows
+        shell: powershell
+        run: |
+          cmake -S HWIDSpoofer/HWIDChanger -B cmake-supported -G Ninja -DCMAKE_C_COMPILER=C:/msys64/ucrt64/bin/gcc.exe
+          if ($LASTEXITCODE -ne 0) { throw 'CMake configuration failed.' }
+          cmake --build cmake-supported --parallel 2
+          if ($LASTEXITCODE -ne 0) { throw 'Supported CMake build failed.' }
+          ctest --test-dir cmake-supported --output-on-failure
+          if ($LASTEXITCODE -ne 0) { throw 'CMake registered tests failed.' }
+          if (Test-Path 'cmake-supported/HWIDChanger.dll') { throw 'Unsafe legacy hook DLL was built by CMake.' }
       - name: Assert inactive native-injection DLL is excluded
         shell: powershell
         run: |
@@ -102,6 +112,20 @@ jobs:
           }
           Write-Host 'PASS: unavailable native and global spoof modes reject commands without registry changes.'
           exit 0
+      - name: Publish supported Windows binaries (no injection DLL)
+        uses: actions/upload-artifact@v4
+        with:
+          name: HWIDChanger-supported-windows
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe
+            HWIDSpoofer/HWIDChanger/bin/HWIDTest.exe
+            HWIDSpoofer/HWIDChanger/bin/Verify-HWID.ps1
+            HWIDSpoofer/HWIDChanger/bin/MacOverride.ps1
+            HWIDSpoofer/HWIDChanger/bin/VirtualHardwareProfile.ps1
+            HWIDSpoofer/HWIDChanger/bin/Verify-VirtualHardwareGuest.ps1
+
       - name: Verify repeatable saved guest identifiers
         shell: powershell
         run: |
