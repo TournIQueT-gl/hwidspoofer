@@ -28,7 +28,7 @@ install(TARGETS HWIDChanger HWIDChangerHook HWIDTest
     RUNTIME DESTINATION bin LIBRARY DESTINATION bin)
 
 # Both PowerShell helpers are Windows inbox dependencies for the console UI.
-foreach(HELPER Verify-HWID.ps1 MacOverride.ps1)
+foreach(HELPER Verify-HWID.ps1 MacOverride.ps1 VirtualHardwareProfile.ps1 Verify-VirtualHardwareGuest.ps1)
     add_custom_command(TARGET HWIDChanger POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/${HELPER}"
