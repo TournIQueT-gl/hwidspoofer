@@ -53,3 +53,24 @@ reported.
 This isolated VM solution does NOT complete HWIDChanger.exe's unfinished
 user-mode hooking engine. Firmware changes on physical computers and
 Windows-wide interception of another process are outside this lab scope.
+
+
+## Same VM hardware profile from HWIDChanger.exe
+
+The Windows build includes a guest-only preview/boot wrapper that passes the
+current config's BIOS/system, motherboard and disk serials to the QEMU profile.
+A loaded config lets you reuse the **same** serials across launches:
+
+    .\bin\HWIDChanger.exe -r -s C:\VirtualLab\hardware.cfg
+    .\bin\HWIDChanger.exe --config C:\VirtualLab\hardware.cfg --vm-preview C:\VirtualLab\guest.qcow2
+    .\bin\HWIDChanger.exe --config C:\VirtualLab\hardware.cfg --vm-run C:\VirtualLab\guest.qcow2
+
+The profile requires safe, alphanumeric serials (plus hyphens/underscores), at
+most 30 characters for system/board and at most 20 for virtual disk; invalid
+values fail without launching anything. If the config file cannot be loaded,
+the CLI fails instead of silently using random identifiers.
+
+The serials are configured **when QEMU starts the guest**. Neither option can
+change Win32_BIOS/Win32_BaseBoard/Win32_DiskDrive reports in the host or in a
+previously running Windows Sandbox. The VM must be booted with the chosen
+settings and guest-side CIM readback must pass to claim success.
