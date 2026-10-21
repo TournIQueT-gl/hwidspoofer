@@ -20,6 +20,9 @@ set_target_properties(HWIDChangerHook PROPERTIES OUTPUT_NAME "HWIDChanger" PREFI
 target_link_libraries(HWIDChangerHook PRIVATE kernel32 advapi32 iphlpapi)
 add_executable(HWIDTest hwid_test.c hwid_readback.c)
 target_link_libraries(HWIDTest PRIVATE kernel32 advapi32 iphlpapi)
+
+# Build and register the standalone read-only parser tests.
+add_subdirectory(tests)
 install(TARGETS HWIDChanger HWIDChangerHook HWIDTest
     RUNTIME DESTINATION bin LIBRARY DESTINATION bin)
 
