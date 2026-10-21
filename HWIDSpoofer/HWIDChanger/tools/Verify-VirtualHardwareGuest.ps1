@@ -16,6 +16,11 @@ function Probe([scriptblock]$script) {
 }
 $checks=@(
     [pscustomobject]@{
+        Component='Win32_BIOS.SerialNumber'
+        Expected=$SystemId
+        Actual=(Probe { (Get-CimInstance Win32_BIOS).SerialNumber })
+    },
+    [pscustomobject]@{
         Component='SMBIOS system serial'
         Expected=$SystemId
         Actual=(Probe { (Get-CimInstance Win32_ComputerSystemProduct).IdentifyingNumber })
@@ -41,8 +46,6 @@ foreach($check in $checks){
     $check | Add-Member -NotePropertyName Result -NotePropertyValue $status
 }
 $checks | Format-Table -AutoSize -Wrap
-$bios=Probe { (Get-CimInstance Win32_BIOS).SerialNumber }
-Write-Host ('Win32_BIOS.SerialNumber (informational): '+$bios)
-Write-Host ('Passed: '+$passed+'/3')
-if ($passed -ne 3) { exit 1 }
-Write-Host 'PASS: all three configured virtual identifiers are visible through CIM.'
+Write-Host ('Passed: '+$passed+'/4')
+if ($passed -ne 4) { exit 1 }
+Write-Host 'PASS: BIOS, system, baseboard and disk readings match the virtual hardware profile.'
