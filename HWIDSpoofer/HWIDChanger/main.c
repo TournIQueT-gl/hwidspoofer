@@ -117,11 +117,30 @@ static int run_companion_script(const char* name, const char* args) {
     return exitCode==0?0:1;
 }
 
+static void show_native_hwid(void) {
+    char serial[256];
+    printf("\n  Windows native hardware readback (no changes applied):\n");
+    if (hwid_get_real_bios_serial(serial, sizeof(serial)) == 0)
+        printf("  SMBIOS system serial (Type 1): %s\n", serial);
+    else
+        printf("  SMBIOS system serial (Type 1): NOT VERIFIED\n");
+    if (hwid_get_real_board_serial(serial, sizeof(serial)) == 0)
+        printf("  SMBIOS board serial  (Type 2): %s\n", serial);
+    else
+        printf("  SMBIOS board serial  (Type 2): NOT VERIFIED\n");
+    if (hwid_get_real_disk_serial(serial, sizeof(serial)) == 0)
+        printf("  Storage device serial:        %s\n", serial);
+    else
+        printf("  Storage device serial:        NOT VERIFIED\n");
+    printf("  These are actual readbacks, not generated target serials.\n");
+}
+
 static void show_real_hwid(void) {
     printf("\n  Real Windows hardware and identifier readings (read-only):\n\n");
     if (run_companion_script("Verify-HWID.ps1","-Phase Before")!=0) {
         fprintf(stderr,"  [ERROR] Hardware information query failed.\n");
     }
+    show_native_hwid();
     printf("\n  Note: firmware serials are not physical hardware changes.\n");
 }
 
@@ -258,6 +277,9 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
         else if (strcmp(argv[i], "--mac-test") == 0) {
             if (run_companion_script("MacOverride.ps1","-Action Test") != 0) return 1;
         }
+        else if (strcmp(argv[i], "--native-readback") == 0) {
+            show_native_hwid();
+        }
         else if (strcmp(argv[i], "--show-hardware") == 0) {
             if (run_companion_script("Verify-HWID.ps1","-Phase Before") != 0) return 1;
         }
@@ -340,6 +362,7 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             printf("  -q, --quiet            Quiet mode\n");
             printf("  -h, --help             Show this help\n");
             printf("  --show-hardware        Read-only Windows hardware report\n");
+            printf("  --native-readback      Read SMBIOS type 1/2 and disk serial via native APIs\n");
             printf("  --vm-preview <IMAGE>    Preview guest serials from current HWID config\n");
             printf("  --vm-run <IMAGE>        Boot QEMU guest using current HWID config serials\n");
             printf("  --mac-apply            Apply temporary MAC override in Windows Sandbox\n");
