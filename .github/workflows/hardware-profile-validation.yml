@@ -74,7 +74,7 @@ jobs:
           foreach ($field in @('SMBIOS system serial', 'SMBIOS board serial', 'Storage device serial')) {
             if (-not $report.Contains($field)) { throw ('Missing hardware readback: '+$field) }
           }
-          Write-Host $report
+          Write-Host 'Native readback path completed; serial values omitted from CI logs.'
       - name: Verify repeatable saved guest identifiers
         shell: powershell
         run: |
