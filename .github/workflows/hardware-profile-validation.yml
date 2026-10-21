@@ -50,4 +50,13 @@ jobs:
       - name: Verify guest-only VM mode is exposed
         shell: powershell
         run: |
-          & 'HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe' --help | Select-String --pattern 'vm-preview', 'vm-run' -SimpleMatch
+          $exe='HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe'
+          $helpText=(& $exe --help) -join "`n"
+          if ($LASTEXITCODE -ne 0 -or -not $helpText.Contains('--vm-preview') -or -not $helpText.Contains('--vm-run')) {
+            throw 'VM guest profile commands missing in EXE.'
+          }
+      - name: Preview hardware serials from new executable
+        shell: powershell
+        run: |
+          & 'HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe' --vm-preview 'C:\VirtualLab\guest.qcow2'
+          if ($LASTEXITCODE -ne 0) { throw 'HWIDChanger virtual guest preview failed.' }
