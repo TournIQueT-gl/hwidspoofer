@@ -17,3 +17,15 @@ endif()
 
 enable_testing()
 add_test(NAME readback_parser COMMAND hwid_readback_tests)
+
+# Run malformed-buffer stress tests separately from the basic assertions.
+add_executable(hwid_readback_stress
+    fuzz_readback.c
+    ../hwid_readback.c
+)
+if(MSVC)
+    target_compile_options(hwid_readback_stress PRIVATE /W4)
+else()
+    target_compile_options(hwid_readback_stress PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+add_test(NAME readback_stress COMMAND hwid_readback_stress)
