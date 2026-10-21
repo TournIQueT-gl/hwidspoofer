@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <conio.h>
-#include <TlHelp32.h>
 
 // 控制台颜色
 #define COLOR_DEFAULT   7
@@ -26,7 +25,7 @@ static void print_banner(void) {
     printf("\n");
     printf("  +======================================================+\n");
     printf("  |           HWID Changer v%s                         |\n", HWID_VERSION);
-    printf("  |        Hardware ID Spoofing Tool                     |\n");
+    printf("  |    Verified recovery and hardware readback           |\n");
     printf("  +======================================================+\n");
     set_color(COLOR_DEFAULT);
     printf("\n");
@@ -142,26 +141,6 @@ static void show_real_hwid(void) {
     }
     show_native_hwid();
     printf("\n  Note: firmware serials are not physical hardware changes.\n");
-}
-
-static DWORD get_pid_by_name(const char* name) {
-    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (snapshot == INVALID_HANDLE_VALUE) return 0;
-    
-    PROCESSENTRY32 pe = { sizeof(pe) };
-    DWORD pid = 0;
-    
-    if (Process32First(snapshot, &pe)) {
-        do {
-            if (_stricmp(pe.szExeFile, name) == 0) {
-                pid = pe.th32ProcessID;
-                break;
-            }
-        } while (Process32Next(snapshot, &pe));
-    }
-    
-    CloseHandle(snapshot);
-    return pid;
 }
 
 // 命令行模式
@@ -479,72 +458,6 @@ static int run_interactive(HwidConfig* config) {
     }
     
     return 0;
-}
-
-// 进程注入实现
-int hwid_inject_process(DWORD pid, const HwidConfig* config) {
-    // 获取当前EXE路径
-    char dll_path[MAX_PATH];
-    GetModuleFileNameA(NULL, dll_path, MAX_PATH);
-    
-    // 修改为DLL路径（假设DLL和EXE在同一目录）
-    char* last_slash = strrchr(dll_path, '\\');
-    if (last_slash) {
-        strcpy(last_slash + 1, "HWIDChanger.dll");
-    }
-    
-    // 检查DLL是否存在
-    if (GetFileAttributesA(dll_path) == INVALID_FILE_ATTRIBUTES) {
-        // 如果没有单独的DLL，使用驱动模式
-        return hwid_load_driver() == 0 ? hwid_driver_set_config(config) : -1;
-    }
-    
-    // 打开目标进程
-    HANDLE hProcess = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | 
-                                  PROCESS_VM_WRITE | PROCESS_VM_READ | 
-                                  PROCESS_QUERY_INFORMATION, FALSE, pid);
-    if (!hProcess) return -1;
-    
-    // 分配内存
-    size_t path_size = strlen(dll_path) + 1;
-    LPVOID pRemote = VirtualAllocEx(hProcess, NULL, path_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    if (!pRemote) {
-        CloseHandle(hProcess);
-        return -1;
-    }
-    
-    // 写入DLL路径
-    WriteProcessMemory(hProcess, pRemote, dll_path, path_size, NULL);
-    
-    // 获取LoadLibraryA地址
-    HMODULE hKernel32 = GetModuleHandleW(L"kernel32.dll");
-    LPVOID pLoadLibrary = GetProcAddress(hKernel32, "LoadLibraryA");
-    
-    // 创建远程线程
-    HANDLE hThread = CreateRemoteThread(hProcess, NULL, 0, 
-                                        (LPTHREAD_START_ROUTINE)pLoadLibrary,
-                                        pRemote, 0, NULL);
-    if (!hThread) {
-        VirtualFreeEx(hProcess, pRemote, 0, MEM_RELEASE);
-        CloseHandle(hProcess);
-        return -1;
-    }
-    
-    // 等待完成
-    WaitForSingleObject(hThread, 5000);
-    
-    // 清理
-    CloseHandle(hThread);
-    VirtualFreeEx(hProcess, pRemote, 0, MEM_RELEASE);
-    CloseHandle(hProcess);
-    
-    return 0;
-}
-
-int hwid_inject_by_name(const char* process_name, const HwidConfig* config) {
-    DWORD pid = get_pid_by_name(process_name);
-    if (pid == 0) return -1;
-    return hwid_inject_process(pid, config);
 }
 
 // 检查管理员权限

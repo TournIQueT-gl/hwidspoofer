@@ -3,28 +3,27 @@ project(HWIDChanger VERSION 2.0.0 LANGUAGES C)
 if(NOT WIN32)
     message(FATAL_ERROR "HWIDChanger v2 requires Windows.")
 endif()
-# The current hook implementation uses GCC statement expressions.
+# Build the supported Windows diagnostics and reversible registry/MAC features.
+# The unvalidated remote injection and inline-patching engine is not linked.
 if(NOT CMAKE_C_COMPILER_ID STREQUAL "GNU")
-    message(FATAL_ERROR "HWIDChanger v2 requires MinGW-w64 GCC (not MSVC).")
+    message(FATAL_ERROR "This release currently requires MinGW-w64 GCC.")
 endif()
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CHANGER_COMMON_SOURCES
-    hwid_core.c hwid_hooks.c hwid_readback.c registry_spoof.c appinit_spoof.c)
+    hwid_core.c hwid_readers_win.c hwid_backend_unavailable.c
+    hwid_readback.c registry_spoof.c appinit_spoof.c)
 add_executable(HWIDChanger main.c ${CHANGER_COMMON_SOURCES})
 target_compile_definitions(HWIDChanger PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(HWIDChanger PRIVATE -Wall -Wextra)
 target_link_libraries(HWIDChanger PRIVATE kernel32 advapi32 iphlpapi user32)
-add_library(HWIDChangerHook SHARED hwid_dll.c)
-set_target_properties(HWIDChangerHook PROPERTIES OUTPUT_NAME "HWIDChanger" PREFIX "")
-target_link_libraries(HWIDChangerHook PRIVATE kernel32 advapi32 iphlpapi)
 add_executable(HWIDTest hwid_test.c hwid_readback.c)
 target_link_libraries(HWIDTest PRIVATE kernel32 advapi32 iphlpapi)
 
 # Build and register the standalone read-only parser tests.
 enable_testing()
 add_subdirectory(tests)
-install(TARGETS HWIDChanger HWIDChangerHook HWIDTest
+install(TARGETS HWIDChanger HWIDTest
     RUNTIME DESTINATION bin LIBRARY DESTINATION bin)
 
 # Both PowerShell helpers are Windows inbox dependencies for the console UI.
