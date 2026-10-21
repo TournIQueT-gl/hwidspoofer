@@ -43,10 +43,12 @@ and run:
     powershell -ExecutionPolicy Bypass -File .\Verify-VirtualHardwareGuest.ps1 -SystemId LAB-SYSTEM-001 -BoardId LAB-BOARD-001 -DriveId LAB-DISK-001
 
 The check reports individual PASS/MISMATCH/NOT VERIFIED results through
-Windows CIM. It also prints Win32_BIOS.SerialNumber as an additional
-diagnostic, because BIOS/system reporting varies by guest firmware and
-Windows provider. If Windows does not expose a virtual disk serial, that
-field is NOT VERIFIED; no fake success is reported.
+Windows CIM for all four relevant readbacks: Win32_BIOS.SerialNumber,
+Win32_ComputerSystemProduct.IdentifyingNumber, Win32_BaseBoard.SerialNumber,
+and Win32_DiskDrive.SerialNumber. **All four must match** to pass. BIOS/system
+reporting varies by guest firmware and Windows provider. If Windows does not
+expose a virtual disk serial, that field is NOT VERIFIED; no fake success is
+reported.
 
 This isolated VM solution does NOT complete HWIDChanger.exe's unfinished
 user-mode hooking engine. Firmware changes on physical computers and
