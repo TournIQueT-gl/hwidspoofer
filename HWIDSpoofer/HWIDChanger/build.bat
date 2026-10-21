@@ -49,5 +49,9 @@ if errorlevel 1 exit /b 1
 "%BIN%\HWIDReadbackTests.exe"
 if errorlevel 1 exit /b 1
 
-echo [TEST] Guest hardware profile command-line preview...\npowershell -NoProfile -ExecutionPolicy Bypass -File "tests\Test-VirtualHardwareProfile.ps1"\nif errorlevel 1 exit /b 1\n\necho [OK] v2.0 build completed.
+echo [TEST] Guest hardware profile command-line preview...
+powershell -NoProfile -ExecutionPolicy Bypass -File "tests\Test-VirtualHardwareProfile.ps1"
+if errorlevel 1 exit /b 1
+
+echo [OK] v2.0 build completed.
 exit /b 0
