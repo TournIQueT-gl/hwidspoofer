@@ -12,7 +12,7 @@ if not exist "%BIN%" mkdir "%BIN%"
 echo [1/4] Building HWIDChanger.exe...
 gcc -O2 -s -static -ffunction-sections -fdata-sections "-Wl,--gc-sections" ^
     -o "%BIN%\HWIDChanger.exe" ^
-    main.c hwid_core.c hwid_hooks.c registry_spoof.c appinit_spoof.c ^
+    main.c hwid_core.c hwid_hooks.c hwid_readback.c registry_spoof.c appinit_spoof.c ^
     -liphlpapi -ladvapi32 -luser32
 if errorlevel 1 exit /b 1
 
