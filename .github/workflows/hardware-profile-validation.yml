@@ -75,6 +75,18 @@ jobs:
             if (-not $report.Contains($field)) { throw ('Missing hardware readback: '+$field) }
           }
           Write-Host 'Native readback path completed; serial values omitted from CI logs.'
+      - name: Verify unsupported native spoof cannot falsely pass or change registry
+        shell: powershell
+        run: |
+          $exe='HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe'
+          $key='HKLM:\SOFTWARE\Microsoft\Cryptography'
+          $before=(Get-ItemProperty -Path $key -Name MachineGuid).MachineGuid
+          & $exe --apply
+          $code=$LASTEXITCODE
+          $after=(Get-ItemProperty -Path $key -Name MachineGuid).MachineGuid
+          if ($code -eq 0) { throw 'Native spoof falsely reported success.' }
+          if ($before -ne $after) { throw 'Unsupported native spoof changed registry.' }
+          Write-Host 'PASS: unsupported native spoof fails closed and registry is unchanged.'
       - name: Verify repeatable saved guest identifiers
         shell: powershell
         run: |
