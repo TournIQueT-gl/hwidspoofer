@@ -86,7 +86,13 @@ jobs:
           $after=(Get-ItemProperty -Path $key -Name MachineGuid).MachineGuid
           if ($code -eq 0) { throw 'Native spoof falsely reported success.' }
           if ($before -ne $after) { throw 'Unsupported native spoof changed registry.' }
-          Write-Host 'PASS: unsupported native spoof fails closed and registry is unchanged.'
+          foreach ($unsupported in @('--full-usermode','--enable-appinit')) {
+            & $exe $unsupported
+            if ($LASTEXITCODE -eq 0) { throw ('Invalid success: '+$unsupported) }
+            $current=(Get-ItemProperty -Path $key -Name MachineGuid).MachineGuid
+            if ($current -ne $before) { throw ('Registry changed on unavailable mode: '+$unsupported) }
+          }
+          Write-Host 'PASS: unavailable native and global spoof modes reject commands without registry changes.'
       - name: Verify repeatable saved guest identifiers
         shell: powershell
         run: |
