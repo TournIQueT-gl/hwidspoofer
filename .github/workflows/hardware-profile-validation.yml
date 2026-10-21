@@ -5,6 +5,11 @@ on:
       - fix/build-and-recovery-2026-10-21
   pull_request:
     paths:
+      - 'HWIDSpoofer/HWIDChanger/hwid_hooks.c'
+      - 'HWIDSpoofer/HWIDChanger/main.c'
+      - 'HWIDSpoofer/HWIDChanger/hwid_changer.h'
+      - 'HWIDSpoofer/HWIDChanger/build.bat'
+      - 'HWIDSpoofer/HWIDChanger/CMakeLists.txt'
       - 'HWIDSpoofer/HWIDChanger/hwid_readback.c'
       - 'HWIDSpoofer/HWIDChanger/hwid_readback.h'
       - 'HWIDSpoofer/HWIDChanger/tests/**'
@@ -60,6 +65,16 @@ jobs:
         run: |
           & 'HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe' --vm-preview 'C:\VirtualLab\guest.qcow2'
           if ($LASTEXITCODE -ne 0) { throw 'HWIDChanger virtual guest preview failed.' }
+      - name: Check native BIOS, board and storage readers
+        shell: powershell
+        run: |
+          $exe='HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe'
+          $report=(& $exe --native-readback) -join "`n"
+          if ($LASTEXITCODE -ne 0) { throw 'Native hardware readback exited with error.' }
+          foreach ($field in @('SMBIOS system serial', 'SMBIOS board serial', 'Storage device serial')) {
+            if (-not $report.Contains($field)) { throw ('Missing hardware readback: '+$field) }
+          }
+          Write-Host $report
       - name: Verify repeatable saved guest identifiers
         shell: powershell
         run: |
