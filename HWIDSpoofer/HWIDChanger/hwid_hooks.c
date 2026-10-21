@@ -546,29 +546,46 @@ int hwid_get_real_mac(uint8_t* mac) {
     return -1;
 }
 
-/* Type 1 is the system serial displayed by many BIOS/WMI providers.
-   It is read from firmware, not changed or fabricated. */
-int hwid_get_real_bios_serial(char* buf, int len) {
-    if (!buf || len < 2) return -1;
-    buf[0] = 0;
+/* Read actual firmware data, not any generated configuration values.
+   Windows reports a system serial (SMBIOS type 1) separately from the
+   baseboard serial (SMBIOS type 2); either may be absent in a virtual VM. */
+static int query_smbios_readback(HwidReadback *info) {
+    if (!info) return -1;
     UINT bytes = GetSystemFirmwareTable(RSMB, 0, NULL, 0);
     if (bytes < 8 || bytes > 4u * 1024u * 1024u) return -1;
     BYTE *memory = (BYTE*)malloc(bytes);
     if (!memory) return -1;
     UINT received = GetSystemFirmwareTable(RSMB, 0, memory, bytes);
-    HwidReadback info = {0};
-    int result = -1;
-    if (received >= 8 && received <= bytes &&
-        hwid_read_smbios(memory, received, &info) == 0 &&
-        info.system_serial[0]) {
-        size_t amount = strlen(info.system_serial);
-        if (amount < (size_t)len) {
-            memcpy(buf, info.system_serial, amount + 1);
-            result = 0;
-        }
-    }
+    int result = (received >= 8 && received <= bytes &&
+                  hwid_read_smbios(memory, received, info) == 0) ? 0 : -1;
     free(memory);
     return result;
+}
+
+static int copy_firmware_readback(char *buf, int len, const char *serial) {
+    if (!buf || len < 2) return -1;
+    buf[0] = 0;
+    if (!serial || !serial[0]) return -1;
+    size_t n = strlen(serial);
+    if (n >= (size_t)len) return -1;
+    memcpy(buf, serial, n + 1);
+    return 0;
+}
+
+int hwid_get_real_bios_serial(char* buf, int len) {
+    if (!buf || len < 2) return -1;
+    buf[0] = 0;
+    HwidReadback info = {0};
+    if (query_smbios_readback(&info) != 0) return -1;
+    return copy_firmware_readback(buf, len, info.system_serial);
+}
+
+int hwid_get_real_board_serial(char* buf, int len) {
+    if (!buf || len < 2) return -1;
+    buf[0] = 0;
+    HwidReadback info = {0};
+    if (query_smbios_readback(&info) != 0) return -1;
+    return copy_firmware_readback(buf, len, info.board_serial);
 }
 int hwid_get_real_uuid(char* buf, int len) { buf[0] = 0; return -1; }
 
