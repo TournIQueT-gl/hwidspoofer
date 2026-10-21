@@ -32,7 +32,7 @@ for %%F in (HWIDChanger.exe HWIDChanger.dll HWIDTest.exe) do (
     )
 )
 echo [4/4] Bundling read-only verification and Sandbox MAC recovery scripts...
-for %%F in (Verify-HWID.ps1 MacOverride.ps1) do (
+for %%F in (Verify-HWID.ps1 MacOverride.ps1 VirtualHardwareProfile.ps1 Verify-VirtualHardwareGuest.ps1) do (
     if not exist "tools\%%F" (
         echo [ERROR] Missing companion script: %%F
         exit /b 1
@@ -49,5 +49,5 @@ if errorlevel 1 exit /b 1
 "%BIN%\HWIDReadbackTests.exe"
 if errorlevel 1 exit /b 1
 
-echo [OK] v2.0 build completed.
+echo [TEST] Guest hardware profile command-line preview...\npowershell -NoProfile -ExecutionPolicy Bypass -File "tests\Test-VirtualHardwareProfile.ps1"\nif errorlevel 1 exit /b 1\n\necho [OK] v2.0 build completed.
 exit /b 0
