@@ -58,7 +58,7 @@ static void print_menu(void) {
     set_color(COLOR_DEFAULT);
     printf("  --------------------------------------------------------\n");
     printf("  [1] Generate random HWID\n");
-    printf("  [2] In-process API hooks (experimental)\n");
+    printf("  [2] Native BIOS/board/disk spoof (not available)\n");
     printf("  [3] Kernel driver (not available)\n");
     printf("  [4] Process injection (experimental)\n");
     printf("  [5] Show real hardware info\n");
@@ -172,12 +172,9 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             printf("Generated random HWID\n");
         }
         else if (strcmp(argv[i], "-a") == 0 || strcmp(argv[i], "--apply") == 0) {
-            if (hwid_apply(config, MODE_AUTO) == 0) {
-                printf("Spoof applied successfully\n");
-            } else {
-                printf("Failed to apply spoof\n");
-                return 1;
-            }
+            fprintf(stderr, "[NOT IMPLEMENTED] Native BIOS, motherboard and disk spoofing is not validated.\n");
+            fprintf(stderr, "No firmware/storage interception was applied. Use --vm-preview for guest-only profiles.\n");
+            return 2;
         }
         else if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--driver") == 0) {
             fprintf(stderr,"Kernel driver mode is unavailable: no validated driver is bundled.\n");
@@ -353,7 +350,7 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             printf("Usage: %s [options]\n\n", argv[0]);
             printf("Options:\n");
             printf("  -r, --random           Generate random HWID\n");
-            printf("  -a, --apply            Apply spoof to current process\n");
+            printf("  -a, --apply            Unavailable: native spoofing unverified\n");
             printf("  -d, --driver           Not available in this build\n");
             printf("  -p, --pid <PID>        Inject into process by PID\n");
             printf("  -n, --name <NAME>      Inject into process by name\n");
@@ -406,20 +403,13 @@ static int run_interactive(HwidConfig* config) {
                 set_color(COLOR_DEFAULT);
                 break;
                 
-            case 2:  // 应用伪装
-                set_color(COLOR_YELLOW);
-                printf("\n  Applying spoof...\n");
-                set_color(COLOR_DEFAULT);
-                if (hwid_apply(config, MODE_AUTO) == 0) {
-                    set_color(COLOR_GREEN);
-                    printf("  [OK] Spoof applied successfully!\n");
-                } else {
-                    set_color(COLOR_RED);
-                    printf("  [ERROR] Failed to apply spoof\n");
-                }
+            case 2:
+                set_color(COLOR_RED);
+                printf("\n  [NOT IMPLEMENTED] Native BIOS, motherboard and disk spoofing is unavailable.\n");
+                printf("  No hardware values have been changed by this command.\n");
                 set_color(COLOR_DEFAULT);
                 break;
-                
+
             case 3:
                 printf("\n  [UNAVAILABLE] Kernel driver is not included or validated.\n");
                 printf("  Do not enable Windows test signing for this build.\n");
