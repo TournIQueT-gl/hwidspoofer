@@ -3,9 +3,11 @@ on:
   push:
     branches:
       - fix/build-and-recovery-2026-10-21
+      - refactor/supported-backend-2026-10-21
   pull_request:
     paths:
-      - 'HWIDSpoofer/HWIDChanger/hwid_hooks.c'
+      - 'HWIDSpoofer/HWIDChanger/hwid_readers_win.c'
+      - 'HWIDSpoofer/HWIDChanger/hwid_backend_unavailable.c'
       - 'HWIDSpoofer/HWIDChanger/main.c'
       - 'HWIDSpoofer/HWIDChanger/hwid_changer.h'
       - 'HWIDSpoofer/HWIDChanger/build.bat'
@@ -52,24 +54,12 @@ jobs:
           set "PATH=C:\msys64\ucrt64\bin;%PATH%"
           cd /d HWIDSpoofer\HWIDChanger
           call build.bat
-      - name: Verify safe DLL load without automatic interception
+      - name: Assert inactive native-injection DLL is excluded
         shell: powershell
         run: |
-          $dll=[System.IO.Path]::GetFullPath('HWIDSpoofer/HWIDChanger/bin/HWIDChanger.dll')
-          Add-Type -TypeDefinition @'
-          using System;
-          using System.Runtime.InteropServices;
-          public static class HwidSafeLoader {
-            [DllImport("kernel32.dll", EntryPoint="LoadLibraryW", CharSet=CharSet.Unicode, SetLastError=true)]
-            public static extern IntPtr Load(string path);
-            [DllImport("kernel32.dll", EntryPoint="FreeLibrary", SetLastError=true)]
-            public static extern bool Unload(IntPtr module);
-          }
-          '@
-          $handle=[HwidSafeLoader]::Load($dll)
-          if ($handle -eq [IntPtr]::Zero) { throw 'HWID DLL LoadLibraryW failed.' }
-          if (-not [HwidSafeLoader]::Unload($handle)) { throw 'HWID DLL FreeLibrary failed.' }
-          Write-Host 'PASS: HWID DLL loads and unloads without activating legacy API hooks.'
+          $dll='HWIDSpoofer/HWIDChanger/bin/HWIDChanger.dll'
+          if (Test-Path $dll) { throw 'Legacy injection DLL was incorrectly included in the supported build.' }
+          Write-Host 'PASS: unsupported injection DLL was not shipped.'
       - name: Verify guest-only VM mode is exposed
         shell: powershell
         run: |
