@@ -38,7 +38,9 @@ static RegistryBackup g_backup = {0};
 static int reg_read_string(HKEY root, const char* subkey, const char* name, char* buf, DWORD size)
 {
     HKEY hKey;
-    DWORD type = REG_SZ;
+    DWORD type = 0;
+    if (!buf || size == 0) return -1;
+    memset(buf, 0, size);
     
     if (RegOpenKeyExA(root, subkey, 0, KEY_READ, &hKey) != ERROR_SUCCESS)
         return -1;
@@ -46,7 +48,8 @@ static int reg_read_string(HKEY root, const char* subkey, const char* name, char
     LONG ret = RegQueryValueExA(hKey, name, NULL, &type, (LPBYTE)buf, &size);
     RegCloseKey(hKey);
     
-    return (ret == ERROR_SUCCESS) ? 0 : -1;
+    /* Never treat missing, malformed or unterminated registry data as a valid backup. */
+    return (ret == ERROR_SUCCESS && type == REG_SZ && memchr(buf, '\0', size)) ? 0 : -1;
 }
 
 // 写入字符串值
@@ -77,140 +80,89 @@ static int reg_write_binary(HKEY root, const char* subkey, const char* name, con
     return (ret == ERROR_SUCCESS) ? 0 : -1;
 }
 
-// 备份当前注册表值
+// Snapshot is deliberately limited to the values that safe global mode writes.
+// Older releases also modified HwProfileGuid and adapter NetworkAddress values
+// without saving their originals. Safe global mode no longer writes those keys.
 int hwid_backup_registry(void)
 {
     if (g_backup.has_backup)
-        return 0;  // 内存中已有备份
-    
-    // 检查是否已有备份文件（防止覆盖真实值）
+        return 0;
+
     FILE* existing = fopen(BACKUP_FILE, "rb");
     if (existing) {
-        // 已有备份文件，加载它而不是创建新的
         fclose(existing);
-        if (hwid_load_backup(BACKUP_FILE) == 0) {
-            printf("  Loaded existing backup (preserving original values)\n");
-            return 0;
-        }
-    }
-    
-    // 没有备份文件，创建新备份
-    // 备份 MachineGuid
-    reg_read_string(HKEY_LOCAL_MACHINE, REG_MACHINE_GUID, "MachineGuid",
-                    g_backup.machine_guid, sizeof(g_backup.machine_guid));
-    
-    // 备份 ProductId
-    reg_read_string(HKEY_LOCAL_MACHINE, REG_PRODUCT_ID, "ProductId",
-                    g_backup.product_id, sizeof(g_backup.product_id));
-    
-    // 备份 ComputerName
-    reg_read_string(HKEY_LOCAL_MACHINE, REG_COMPUTER_NAME, "ComputerName",
-                    g_backup.computer_name, sizeof(g_backup.computer_name));
-    
-    g_backup.has_backup = TRUE;
-    
-    printf("  Registry values backed up (new backup created)\n");
-    return 0;
-}
-
-// 恢复注册表值
-int hwid_restore_registry(void)
-{
-    // 如果内存中没有备份，尝试从文件加载
-    if (!g_backup.has_backup) {
         if (hwid_load_backup(BACKUP_FILE) != 0) {
-            printf("  No backup found (neither in memory nor in file)\n");
+            fprintf(stderr, "  [ERROR] Backup exists but is corrupt/incompatible; refusing to overwrite it.\n");
             return -1;
         }
-        printf("  Loaded backup from file\n");
+        printf("  Loaded existing backup (preserving original values)\n");
+        return 0;
     }
-    
-    if (g_backup.machine_guid[0])
-        reg_write_string(HKEY_LOCAL_MACHINE, REG_MACHINE_GUID, "MachineGuid", g_backup.machine_guid);
-    
-    if (g_backup.product_id[0])
-        reg_write_string(HKEY_LOCAL_MACHINE, REG_PRODUCT_ID, "ProductId", g_backup.product_id);
-    
-    if (g_backup.computer_name[0]) {
-        reg_write_string(HKEY_LOCAL_MACHINE, REG_COMPUTER_NAME, "ComputerName", g_backup.computer_name);
-        reg_write_string(HKEY_LOCAL_MACHINE, REG_ACTIVE_NAME, "ComputerName", g_backup.computer_name);
+
+    /* A missing backup is only safe to recreate when all original values can
+       be read. Never snapshot already-changed values after a read failure. */
+    RegistryBackup snapshot = {0};
+    if (reg_read_string(HKEY_LOCAL_MACHINE, REG_MACHINE_GUID, "MachineGuid",
+                        snapshot.machine_guid, sizeof(snapshot.machine_guid)) != 0 ||
+        reg_read_string(HKEY_LOCAL_MACHINE, REG_PRODUCT_ID, "ProductId",
+                        snapshot.product_id, sizeof(snapshot.product_id)) != 0 ||
+        reg_read_string(HKEY_LOCAL_MACHINE, REG_COMPUTER_NAME, "ComputerName",
+                        snapshot.computer_name, sizeof(snapshot.computer_name)) != 0) {
+        fprintf(stderr, "  [ERROR] Cannot read all original registry values. No changes made.\n");
+        return -1;
     }
-    
-    printf("  Registry values restored\n");
+
+    snapshot.has_backup = TRUE;
+    g_backup = snapshot;
+    printf("  Original registry values captured in memory\n");
     return 0;
 }
 
-// 修改网卡MAC地址（注册表级别）
-static int spoof_network_adapters(const uint8_t* mac)
+int hwid_restore_registry(void)
 {
-    HKEY hClassKey;
-    char subkeyPath[256];
-    int modified = 0;
-    
-    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, REG_NETWORK_CARDS, 0, KEY_READ, &hClassKey) != ERROR_SUCCESS)
-        return -1;
-    
-    // 遍历所有网卡
-    for (DWORD i = 0; ; i++)
-    {
-        char subkeyName[32];
-        DWORD nameLen = sizeof(subkeyName);
-        
-        if (RegEnumKeyExA(hClassKey, i, subkeyName, &nameLen, NULL, NULL, NULL, NULL) != ERROR_SUCCESS)
-            break;
-        
-        // 跳过Properties子键
-        if (strcmp(subkeyName, "Properties") == 0)
-            continue;
-        
-        snprintf(subkeyPath, sizeof(subkeyPath), "%s\\%s", REG_NETWORK_CARDS, subkeyName);
-        
-        HKEY hAdapterKey;
-        if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, subkeyPath, 0, KEY_READ | KEY_SET_VALUE, &hAdapterKey) == ERROR_SUCCESS)
-        {
-            // 检查是否是物理网卡
-            char characteristics[16] = {0};
-            DWORD charSize = sizeof(characteristics);
-            DWORD charType = REG_DWORD;
-            DWORD charValue = 0;
-            
-            if (RegQueryValueExA(hAdapterKey, "Characteristics", NULL, &charType, 
-                (LPBYTE)&charValue, &charSize) == ERROR_SUCCESS)
-            {
-                // NCF_PHYSICAL = 0x4
-                if (charValue & 0x4)
-                {
-                    // 设置NetworkAddress值
-                    char macStr[18];
-                    snprintf(macStr, sizeof(macStr), "%02X%02X%02X%02X%02X%02X",
-                             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-                    
-                    if (RegSetValueExA(hAdapterKey, "NetworkAddress", 0, REG_SZ,
-                        (LPBYTE)macStr, (DWORD)strlen(macStr) + 1) == ERROR_SUCCESS)
-                    {
-                        modified++;
-                    }
-                }
-            }
-            
-            RegCloseKey(hAdapterKey);
+    if (!g_backup.has_backup) {
+        if (hwid_load_backup(BACKUP_FILE) != 0) {
+            fprintf(stderr, "  [ERROR] No valid registry backup available.\n");
+            return -1;
         }
     }
-    
-    RegCloseKey(hClassKey);
-    return modified;
+
+    int failures = 0;
+    if (reg_write_string(HKEY_LOCAL_MACHINE, REG_MACHINE_GUID,
+                         "MachineGuid", g_backup.machine_guid) != 0) {
+        fprintf(stderr, "  [FAIL] MachineGuid restore\n");
+        failures++;
+    }
+    if (reg_write_string(HKEY_LOCAL_MACHINE, REG_PRODUCT_ID,
+                         "ProductId", g_backup.product_id) != 0) {
+        fprintf(stderr, "  [FAIL] ProductId restore\n");
+        failures++;
+    }
+    if (reg_write_string(HKEY_LOCAL_MACHINE, REG_COMPUTER_NAME,
+                         "ComputerName", g_backup.computer_name) != 0) {
+        fprintf(stderr, "  [FAIL] ComputerName restore\n");
+        failures++;
+    }
+
+    if (failures) {
+        fprintf(stderr, "  [ERROR] Registry restore incomplete: %d write(s) failed.\n", failures);
+        return -1;
+    }
+    printf("  Registry values restored (reboot may be required)\n");
+    return 0;
 }
 
 // 应用全局注册表伪装
 int hwid_apply_registry_global(const HwidConfig* config)
 {
     int success = 0;
+    int failures = 0;
     
-    // 先备份
-    hwid_backup_registry();
-    
-    // 自动保存备份到文件
-    hwid_save_backup(BACKUP_FILE);
+    /* Fail closed: no permanent writes unless a validated, durable backup exists. */
+    if (hwid_backup_registry() != 0 || hwid_save_backup(BACKUP_FILE) != 0) {
+        fprintf(stderr, "  [ERROR] Could not securely preserve originals; refusing registry changes.\n");
+        return -1;
+    }
     
     printf("  Applying global registry spoof...\n");
     
@@ -222,6 +174,7 @@ int hwid_apply_registry_global(const HwidConfig* config)
             success++;
         } else {
             printf("    [FAIL] MachineGuid (need admin)\n");
+            failures++;
         }
     }
     
@@ -231,6 +184,9 @@ int hwid_apply_registry_global(const HwidConfig* config)
             "ProductId", config->product_id) == 0) {
             printf("    [OK] ProductId modified\n");
             success++;
+        } else {
+            fprintf(stderr, "    [FAIL] ProductId write\n");
+            failures++;
         }
     }
     
@@ -238,33 +194,28 @@ int hwid_apply_registry_global(const HwidConfig* config)
     if (config->computer_name[0]) {
         if (reg_write_string(HKEY_LOCAL_MACHINE, REG_COMPUTER_NAME,
             "ComputerName", config->computer_name) == 0) {
-            reg_write_string(HKEY_LOCAL_MACHINE, REG_ACTIVE_NAME,
-                "ComputerName", config->computer_name);
-            printf("    [OK] ComputerName modified\n");
+            /* ActiveComputerName may legitimately differ during a pending rename.
+               Do not mutate it without a separate, accurate backup. */
+            printf("    [OK] ComputerName updated (reboot required)\n");
             success++;
+        } else {
+            fprintf(stderr, "    [FAIL] ComputerName write\n");
+            failures++;
         }
     }
     
-    // 4. 修改 HwProfileGuid
-    if (config->system_uuid[0]) {
-        char hwProfileGuid[48];
-        snprintf(hwProfileGuid, sizeof(hwProfileGuid), "{%s}", config->system_uuid);
-        if (reg_write_string(HKEY_LOCAL_MACHINE, REG_HWPROFILE,
-            "HwProfileGuid", hwProfileGuid) == 0) {
-            printf("    [OK] HwProfileGuid modified\n");
-            success++;
-        }
-    }
+    /* Previously modified HwProfileGuid and network adapter addresses without
+       saving their original values. Until a per-key backup format is added,
+       do not perform these irreversible-by-this-tool writes. */
+    printf("    [SKIP] HwProfileGuid / adapter MAC registry changes (not safely backed up)\n");
     
-    // 5. 修改网卡MAC地址
-    int macModified = spoof_network_adapters(config->mac_address);
-    if (macModified > 0) {
-        printf("    [OK] Modified %d network adapter(s)\n", macModified);
-        success++;
+    if (failures) {
+        fprintf(stderr, "  [ERROR] %d write(s) failed; attempting rollback.\n", failures);
+        if (hwid_restore_registry() != 0)
+            fprintf(stderr, "  [ERROR] Rollback incomplete. Use --restore-registry as administrator.\n");
+        return -1;
     }
-    
     printf("  Applied %d registry modifications\n", success);
-    
     return success > 0 ? 0 : -1;
 }
 
@@ -283,30 +234,79 @@ int hwid_get_registry_info(HwidConfig* config)
     return 0;
 }
 
-// 保存备份到文件
+// Do not overwrite the only copy of original identifiers.
+// Use an exclusive temporary file and an atomic no-replace rename.
 int hwid_save_backup(const char* path)
 {
-    if (!g_backup.has_backup)
+    if (!path || !*path || !g_backup.has_backup)
         return -1;
-    
-    FILE* f = fopen(path, "wb");
-    if (!f) return -1;
-    
-    fwrite(&g_backup, sizeof(g_backup), 1, f);
-    fclose(f);
-    
+
+    DWORD attrs = GetFileAttributesA(path);
+    if (attrs != INVALID_FILE_ATTRIBUTES) {
+        /* Existing files must validate; never silently reset originals. */
+        RegistryBackup memory_copy = g_backup;
+        int valid = hwid_load_backup(path);
+        g_backup = memory_copy;
+        return valid == 0 ? 0 : -1;
+    }
+    if (GetLastError() != ERROR_FILE_NOT_FOUND &&
+        GetLastError() != ERROR_PATH_NOT_FOUND)
+        return -1;
+
+    char temporary[MAX_PATH];
+    int count = snprintf(temporary, sizeof(temporary), "%s.tmp.%lu.%lu",
+                         path, (unsigned long)GetCurrentProcessId(),
+                         (unsigned long)GetTickCount());
+    if (count < 0 || count >= (int)sizeof(temporary))
+        return -1;
+
+    HANDLE file = CreateFileA(temporary, GENERIC_WRITE, 0, NULL, CREATE_NEW,
+                              FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL);
+    if (file == INVALID_HANDLE_VALUE)
+        return -1;
+
+    DWORD written = 0;
+    BOOL ok = WriteFile(file, &g_backup, (DWORD)sizeof(g_backup), &written, NULL) &&
+              written == sizeof(g_backup) && FlushFileBuffers(file);
+    if (!CloseHandle(file))
+        ok = FALSE;
+
+    if (!ok || !MoveFileExA(temporary, path, MOVEFILE_WRITE_THROUGH)) {
+        DeleteFileA(temporary);
+        return -1;
+    }
     return 0;
 }
 
-// 从文件加载备份
+// Strictly validate size, flag and null termination before accepting backup.
 int hwid_load_backup(const char* path)
 {
-    FILE* f = fopen(path, "rb");
-    if (!f) return -1;
-    
-    fread(&g_backup, sizeof(g_backup), 1, f);
-    fclose(f);
-    
+    if (!path || !*path)
+        return -1;
+
+    HANDLE file = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL,
+                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE)
+        return -1;
+
+    LARGE_INTEGER size;
+    RegistryBackup snapshot = {0};
+    DWORD read = 0;
+    BOOL ok = GetFileSizeEx(file, &size) &&
+              size.QuadPart == sizeof(snapshot) &&
+              ReadFile(file, &snapshot, (DWORD)sizeof(snapshot), &read, NULL) &&
+              read == sizeof(snapshot);
+    CloseHandle(file);
+
+    if (!ok || snapshot.has_backup != TRUE ||
+        !memchr(snapshot.machine_guid, '\0', sizeof(snapshot.machine_guid)) ||
+        !snapshot.machine_guid[0] ||
+        !memchr(snapshot.product_id, '\0', sizeof(snapshot.product_id)) ||
+        !snapshot.product_id[0] ||
+        !memchr(snapshot.computer_name, '\0', sizeof(snapshot.computer_name)) ||
+        !snapshot.computer_name[0])
+        return -1;
+
+    g_backup = snapshot;
     return 0;
 }
-

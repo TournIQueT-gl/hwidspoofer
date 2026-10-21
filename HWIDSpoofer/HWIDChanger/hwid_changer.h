@@ -138,6 +138,7 @@ uint32_t hwid_random_volume_serial(void);
 int hwid_get_real_disk_serial(char* buf, int len);
 int hwid_get_real_mac(uint8_t* mac);
 int hwid_get_real_bios_serial(char* buf, int len);
+int hwid_get_real_board_serial(char* buf, int len);
 int hwid_get_real_uuid(char* buf, int len);
 
 #ifdef __cplusplus

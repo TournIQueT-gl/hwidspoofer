@@ -10,6 +10,8 @@
 #include <TlHelp32.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include "hwid_readback.h"
 #include "hwid_changer.h"
 
 #pragma comment(lib, "iphlpapi.lib")
@@ -505,38 +507,86 @@ int hwid_driver_set_config(const HwidConfig* config) {
     return ok ? 0 : -1;
 }
 
+/* Non-mutating storage serial inspection.  Windows virtual disks may expose
+   no serial; failure must not be reported as a changed identifier. */
 int hwid_get_real_disk_serial(char* buf, int len) {
-    HANDLE h = CreateFileW(L"\\\\.\\PhysicalDrive0", 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
-    if (h == INVALID_HANDLE_VALUE) return -1;
-    
-    BYTE out[1024] = {0}; DWORD ret;
-    struct { DWORD PropertyId; DWORD QueryType; BYTE Param[1]; } q = {0};
-    
-    EnterCriticalSection(&g_cs);
+    if (!buf || len < 2) return -1;
+    buf[0] = 0;
+    HANDLE device = CreateFileW(L"\\\\.\\PhysicalDrive0", 0,
+                     FILE_SHARE_READ | FILE_SHARE_WRITE,
+                     NULL, OPEN_EXISTING, 0, NULL);
+    if (device == INVALID_HANDLE_VALUE) return -1;
+    STORAGE_PROPERTY_QUERY query = {0};
+    query.PropertyId = StorageDeviceProperty;
+    query.QueryType = PropertyStandardQuery;
+    BYTE result_buffer[4096] = {0};
+    DWORD bytes_returned = 0;
     int was = hook_DeviceIoControl.enabled;
+    if (was) EnterCriticalSection(&g_cs);
     if (was) hotpatch_remove(&hook_DeviceIoControl);
-    BOOL ok = DeviceIoControl(h, 0x2D1400, &q, sizeof(q), out, sizeof(out), &ret, NULL);
+    BOOL success = DeviceIoControl(device, IOCTL_STORAGE_QUERY_PROPERTY,
+                         &query, sizeof(query), result_buffer,
+                         sizeof(result_buffer), &bytes_returned, NULL);
     if (was) hotpatch_install(&hook_DeviceIoControl);
-    LeaveCriticalSection(&g_cs);
-    
-    CloseHandle(h);
-    if (ok) { DWORD off = *(DWORD*)(out + 24); if (off && off < ret) { strncpy(buf, (char*)(out + off), len - 1); buf[len-1] = 0; return 0; } }
-    return -1;
+    if (was) LeaveCriticalSection(&g_cs);
+    CloseHandle(device);
+    if (!success) return -1;
+    return hwid_read_storage_serial(result_buffer, bytes_returned, buf, (size_t)len) == 0 ? 0 : -1;
 }
 
 int hwid_get_real_mac(uint8_t* mac) {
     IP_ADAPTER_INFO a[16]; ULONG sz = sizeof(a);
-    EnterCriticalSection(&g_cs);
     int was = hook_GetAdaptersInfo.enabled;
+    if (was) EnterCriticalSection(&g_cs);
     if (was) hotpatch_remove(&hook_GetAdaptersInfo);
     DWORD r = GetAdaptersInfo(a, &sz);
     if (was) hotpatch_install(&hook_GetAdaptersInfo);
-    LeaveCriticalSection(&g_cs);
+    if (was) LeaveCriticalSection(&g_cs);
     if (r == ERROR_SUCCESS && a[0].AddressLength == 6) { memcpy(mac, a[0].Address, 6); return 0; }
     return -1;
 }
 
-int hwid_get_real_bios_serial(char* buf, int len) { buf[0] = 0; return -1; }
+/* Read actual firmware data, not any generated configuration values.
+   Windows reports a system serial (SMBIOS type 1) separately from the
+   baseboard serial (SMBIOS type 2); either may be absent in a virtual VM. */
+static int query_smbios_readback(HwidReadback *info) {
+    if (!info) return -1;
+    UINT bytes = GetSystemFirmwareTable(RSMB, 0, NULL, 0);
+    if (bytes < 8 || bytes > 4u * 1024u * 1024u) return -1;
+    BYTE *memory = (BYTE*)malloc(bytes);
+    if (!memory) return -1;
+    UINT received = GetSystemFirmwareTable(RSMB, 0, memory, bytes);
+    int result = (received >= 8 && received <= bytes &&
+                  hwid_read_smbios(memory, received, info) == 0) ? 0 : -1;
+    free(memory);
+    return result;
+}
+
+static int copy_firmware_readback(char *buf, int len, const char *serial) {
+    if (!buf || len < 2) return -1;
+    buf[0] = 0;
+    if (!serial || !serial[0]) return -1;
+    size_t n = strlen(serial);
+    if (n >= (size_t)len) return -1;
+    memcpy(buf, serial, n + 1);
+    return 0;
+}
+
+int hwid_get_real_bios_serial(char* buf, int len) {
+    if (!buf || len < 2) return -1;
+    buf[0] = 0;
+    HwidReadback info = {0};
+    if (query_smbios_readback(&info) != 0) return -1;
+    return copy_firmware_readback(buf, len, info.system_serial);
+}
+
+int hwid_get_real_board_serial(char* buf, int len) {
+    if (!buf || len < 2) return -1;
+    buf[0] = 0;
+    HwidReadback info = {0};
+    if (query_smbios_readback(&info) != 0) return -1;
+    return copy_firmware_readback(buf, len, info.board_serial);
+}
 int hwid_get_real_uuid(char* buf, int len) { buf[0] = 0; return -1; }
 
 // ============== 全局模式（内核级别）==============

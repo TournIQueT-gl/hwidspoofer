@@ -155,9 +155,12 @@ static void install_hooks(void) {
 
 __declspec(dllexport) void HWID_SetConfig(const DllConfig* cfg) { if (cfg) memcpy(&g_cfg, cfg, sizeof(DllConfig)); }
 
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpReserved) {
-    if (reason == DLL_PROCESS_ATTACH) { DisableThreadLibraryCalls(hModule); InitializeCriticalSection(&g_cs); load_config(); install_hooks(); }
-    else if (reason == DLL_PROCESS_DETACH) { for (int i = 0; i < 4; i++) hook_off(&hooks[i]); DeleteCriticalSection(&g_cs); }
+/* Safe loader entrypoint. Unvalidated API patching and LoadLibrary calls
+ * must not run while the Windows loader lock is held. This DLL currently
+ * does not provide native firmware/storage interception. */
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved) {
+    (void)reserved;
+    if (reason == DLL_PROCESS_ATTACH)
+        DisableThreadLibraryCalls(hModule);
     return TRUE;
 }
-

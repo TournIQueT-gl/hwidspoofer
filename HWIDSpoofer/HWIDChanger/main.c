@@ -34,7 +34,7 @@ static void print_banner(void) {
 
 static void print_config(const HwidConfig* config) {
     set_color(COLOR_WHITE);
-    printf("  Current Configuration:\n");
+    printf("  Generated target configuration (not verified as applied):\n");
     set_color(COLOR_DEFAULT);
     printf("  --------------------------------------------------------\n");
     
@@ -48,6 +48,7 @@ static void print_config(const HwidConfig* config) {
            config->mac_address[0], config->mac_address[1], config->mac_address[2],
            config->mac_address[3], config->mac_address[4], config->mac_address[5]);
     printf("  CPU ID:           %s\n", config->cpu_id);
+    printf("  MAC override [8] generates and verifies its own adapter MAC.\n");
     printf("  --------------------------------------------------------\n");
 }
 
@@ -57,14 +58,14 @@ static void print_menu(void) {
     set_color(COLOR_DEFAULT);
     printf("  --------------------------------------------------------\n");
     printf("  [1] Generate random HWID\n");
-    printf("  [2] Apply spoof (to current process)\n");
-    printf("  [3] Load kernel driver\n");
-    printf("  [4] Inject into process\n");
+    printf("  [2] Native BIOS/board/disk spoof (not available)\n");
+    printf("  [3] Kernel driver (not available)\n");
+    printf("  [4] Remote process injection (not available)\n");
     printf("  [5] Show real hardware info\n");
     printf("  [6] Load config from file\n");
     printf("  [7] Save config to file\n");
     set_color(COLOR_CYAN);
-    printf("  [8] Enable GLOBAL mode (all programs)\n");
+    printf("  [8] MAC override / restore (Windows Sandbox)\n");
     printf("  [9] Apply registry changes (permanent)\n");
     set_color(COLOR_DEFAULT);
     printf("  [0] Exit\n");
@@ -74,29 +75,73 @@ static void print_menu(void) {
     set_color(COLOR_DEFAULT);
 }
 
+// Run a bundled, read-only Windows PowerShell companion script.
+// The script name and arguments are fixed by the application, not user input.
+static int run_companion_script(const char* name, const char* args) {
+    char script[MAX_PATH], powershell[MAX_PATH], command[2*MAX_PATH+160];
+    DWORD n=GetModuleFileNameA(NULL,script,MAX_PATH);
+    if (!n || n>=MAX_PATH) { fprintf(stderr,"[ERROR] Cannot locate application folder.\n"); return 1; }
+    char* slash=strrchr(script,'\\');
+    if (!slash || strlen(name)>=MAX_PATH-(size_t)(slash+1-script)) {
+        fprintf(stderr,"[ERROR] Script path too long.\n"); return 1;
+    }
+    strcpy(slash+1,name);
+    if (GetFileAttributesA(script)==INVALID_FILE_ATTRIBUTES) {
+        fprintf(stderr,"[ERROR] Required companion missing: %s\n",script);
+        fprintf(stderr,"Rebuild with build.bat so the scripts are copied to bin.\n");
+        return 1;
+    }
+    n=GetSystemDirectoryA(powershell,MAX_PATH);
+    if (!n || n>=MAX_PATH ||
+        strlen(powershell)+strlen("\\WindowsPowerShell\\v1.0\\powershell.exe")>=MAX_PATH) {
+        fprintf(stderr,"[ERROR] Cannot locate Windows PowerShell.\n"); return 1;
+    }
+    strcat(powershell,"\\WindowsPowerShell\\v1.0\\powershell.exe");
+    if (snprintf(command,sizeof(command),
+                 "\"%s\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"%s\" %s",
+                 powershell,script,args)<0 || strlen(command)>=sizeof(command)-1) {
+        fprintf(stderr,"[ERROR] Script command too long.\n"); return 1;
+    }
+    STARTUPINFOA si={0};
+    PROCESS_INFORMATION pi={0};
+    si.cb=sizeof(si);
+    if (!CreateProcessA(powershell,command,NULL,NULL,FALSE,0,NULL,NULL,&si,&pi)) {
+        fprintf(stderr,"[ERROR] PowerShell launch failed: %lu\n",(unsigned long)GetLastError());
+        return 1;
+    }
+    WaitForSingleObject(pi.hProcess,INFINITE);
+    DWORD exitCode=1;
+    if (!GetExitCodeProcess(pi.hProcess,&exitCode)) exitCode=1;
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    return exitCode==0?0:1;
+}
+
+static void show_native_hwid(void) {
+    char serial[256];
+    printf("\n  Windows native hardware readback (no changes applied):\n");
+    if (hwid_get_real_bios_serial(serial, sizeof(serial)) == 0)
+        printf("  SMBIOS system serial (Type 1): %s\n", serial);
+    else
+        printf("  SMBIOS system serial (Type 1): NOT VERIFIED\n");
+    if (hwid_get_real_board_serial(serial, sizeof(serial)) == 0)
+        printf("  SMBIOS board serial  (Type 2): %s\n", serial);
+    else
+        printf("  SMBIOS board serial  (Type 2): NOT VERIFIED\n");
+    if (hwid_get_real_disk_serial(serial, sizeof(serial)) == 0)
+        printf("  Storage device serial:        %s\n", serial);
+    else
+        printf("  Storage device serial:        NOT VERIFIED\n");
+    printf("  These are actual readbacks, not generated target serials.\n");
+}
+
 static void show_real_hwid(void) {
-    char buf[256];
-    uint8_t mac[6];
-    
-    set_color(COLOR_WHITE);
-    printf("\n  Real Hardware Information:\n");
-    set_color(COLOR_DEFAULT);
-    printf("  --------------------------------------------------------\n");
-    
-    if (hwid_get_real_disk_serial(buf, sizeof(buf)) == 0) {
-        printf("  Disk Serial:      %s\n", buf);
-    } else {
-        printf("  Disk Serial:      (failed to read)\n");
+    printf("\n  Real Windows hardware and identifier readings (read-only):\n\n");
+    if (run_companion_script("Verify-HWID.ps1","-Phase Before")!=0) {
+        fprintf(stderr,"  [ERROR] Hardware information query failed.\n");
     }
-    
-    if (hwid_get_real_mac(mac) == 0) {
-        printf("  MAC Address:      %02X:%02X:%02X:%02X:%02X:%02X\n",
-               mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    } else {
-        printf("  MAC Address:      (failed to read)\n");
-    }
-    
-    printf("  --------------------------------------------------------\n");
+    show_native_hwid();
+    printf("\n  Note: firmware serials are not physical hardware changes.\n");
 }
 
 static DWORD get_pid_by_name(const char* name) {
@@ -127,43 +172,26 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             printf("Generated random HWID\n");
         }
         else if (strcmp(argv[i], "-a") == 0 || strcmp(argv[i], "--apply") == 0) {
-            if (hwid_apply(config, MODE_AUTO) == 0) {
-                printf("Spoof applied successfully\n");
-            } else {
-                printf("Failed to apply spoof\n");
-                return 1;
-            }
+            fprintf(stderr, "[NOT IMPLEMENTED] Native BIOS, motherboard and disk spoofing is not validated.\n");
+            fprintf(stderr, "No firmware/storage interception was applied. Use --vm-preview for guest-only profiles.\n");
+            return 2;
         }
         else if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--driver") == 0) {
-            if (hwid_load_driver() == 0) {
-                printf("Driver loaded\n");
-            } else {
-                printf("Failed to load driver\n");
-                return 1;
-            }
+            fprintf(stderr,"Kernel driver mode is unavailable: no validated driver is bundled.\n");
+            return 2;
         }
-        else if ((strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--pid") == 0) && i + 1 < argc) {
-            DWORD pid = atoi(argv[++i]);
-            if (hwid_inject_process(pid, config) == 0) {
-                printf("Injected into PID %d\n", pid);
-            } else {
-                printf("Failed to inject\n");
-                return 1;
-            }
-        }
-        else if ((strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--name") == 0) && i + 1 < argc) {
-            if (hwid_inject_by_name(argv[++i], config) == 0) {
-                printf("Injected into %s\n", argv[i]);
-            } else {
-                printf("Failed to inject\n");
-                return 1;
-            }
+        else if (strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--pid") == 0 ||
+                 strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--name") == 0) {
+            fprintf(stderr, "[UNAVAILABLE] Remote process injection is not validated and is disabled.\n");
+            fprintf(stderr, "No process was injected or modified.\n");
+            return 2;
         }
         else if ((strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--config") == 0) && i + 1 < argc) {
             if (hwid_load_config(argv[++i], config) == 0) {
                 printf("Config loaded from %s\n", argv[i]);
             } else {
                 printf("Failed to load config\n");
+                return 1;
             }
         }
         else if ((strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--save") == 0) && i + 1 < argc) {
@@ -171,25 +199,75 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
                 printf("Config saved to %s\n", argv[i]);
             } else {
                 printf("Failed to save config\n");
+                return 1;
             }
         }
         else if (strcmp(argv[i], "-q") == 0 || strcmp(argv[i], "--quiet") == 0) {
             // 静默模式
         }
         else if (strcmp(argv[i], "--enable-global") == 0) {
-            if (hwid_enable_global_mode(config) == 0) {
-                printf("Global mode enabled\n");
-            } else {
-                printf("Failed to enable global mode\n");
+            fprintf(stderr,"Kernel global mode is unavailable in this build.\n");
+            return 2;
+        }
+        else if (strcmp(argv[i], "--disable-global") == 0) {
+            fprintf(stderr,"Kernel global mode is unavailable in this build.\n");
+            return 2;
+        }
+        else if (strcmp(argv[i], "--vm-preview") == 0 ||
+                 strcmp(argv[i], "--vm-run") == 0) {
+            int launch = strcmp(argv[i], "--vm-run") == 0;
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Missing VM guest disk image path.\n");
+                return 2;
+            }
+            const char* image = argv[++i];
+            if (strlen(image) > MAX_PATH - 80 || strchr(image, '"') ||
+                strchr(image, '\n') || strchr(image, '\r')) {
+                fprintf(stderr, "Invalid VM guest image path.\n");
+                return 2;
+            }
+            // Only alphanumeric hardware-profile IDs may cross into PowerShell.
+            // -c/--config can load known identifiers before --vm-preview/--vm-run.
+            const char* ids[] = { config->bios_serial, config->board_serial,
+                                   config->disk_serial };
+            const size_t caps[] = { 30, 30, 20 };
+            const char* allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
+            for (int j = 0; j < 3; ++j) {
+                size_t length = strlen(ids[j]);
+                if (!length || length > caps[j] ||
+                    strspn(ids[j], allowed) != length) {
+                    fprintf(stderr, "Unsafe/unsupported guest hardware serial in configuration.\n");
+                    return 2;
+                }
+            }
+            char arguments[MAX_PATH + 256];
+            int count = snprintf(arguments, sizeof(arguments),
+                                 "-Image \"%s\" -SystemId %s -BoardId %s -DriveId %s %s",
+                                 image, config->bios_serial, config->board_serial,
+                                 config->disk_serial, launch ? "-Run" : "");
+            if (count < 0 || (size_t)count >= sizeof(arguments)) return 2;
+            if (run_companion_script("VirtualHardwareProfile.ps1", arguments) != 0) {
+                fprintf(stderr, "VM guest hardware profile action failed.\n");
                 return 1;
             }
         }
-        else if (strcmp(argv[i], "--disable-global") == 0) {
-            if (hwid_disable_global_mode() == 0) {
-                printf("Global mode disabled\n");
-            } else {
-                printf("Failed to disable global mode\n");
-            }
+        else if (strcmp(argv[i], "--mac-apply") == 0) {
+            if (run_companion_script("MacOverride.ps1","-Action Apply") != 0) return 1;
+        }
+        else if (strcmp(argv[i], "--mac-restore") == 0) {
+            if (run_companion_script("MacOverride.ps1","-Action Restore") != 0) return 1;
+        }
+        else if (strcmp(argv[i], "--mac-status") == 0) {
+            if (run_companion_script("MacOverride.ps1","-Action Status") != 0) return 1;
+        }
+        else if (strcmp(argv[i], "--mac-test") == 0) {
+            if (run_companion_script("MacOverride.ps1","-Action Test") != 0) return 1;
+        }
+        else if (strcmp(argv[i], "--native-readback") == 0) {
+            show_native_hwid();
+        }
+        else if (strcmp(argv[i], "--show-hardware") == 0) {
+            if (run_companion_script("Verify-HWID.ps1","-Phase Before") != 0) return 1;
         }
         else if (strcmp(argv[i], "--registry-global") == 0) {
             if (hwid_apply_registry_global(config) == 0) {
@@ -204,63 +282,56 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
                 printf("Registry restored\n");
             } else {
                 printf("Failed to restore registry\n");
+                return 1;
             }
         }
         else if (strcmp(argv[i], "--enable-appinit") == 0) {
-            char dll_path[MAX_PATH];
-            GetModuleFileNameA(NULL, dll_path, MAX_PATH);
-            char* p = strrchr(dll_path, '\\');
-            if (p) strcpy(p + 1, "HWIDChanger.dll");
-            if (hwid_enable_appinit_injection(dll_path) == 0) {
-                printf("AppInit injection enabled (affects new processes)\n");
-            } else {
-                printf("Failed to enable AppInit injection\n");
-                return 1;
-            }
+            fprintf(stderr, "[UNAVAILABLE] The global DLL injection engine is not validated.\n");
+            fprintf(stderr, "No AppInit settings were changed. --disable-appinit remains available for recovery.\n");
+            return 2;
         }
         else if (strcmp(argv[i], "--disable-appinit") == 0) {
             if (hwid_disable_appinit_injection() == 0) {
                 printf("AppInit injection disabled\n");
             } else {
                 printf("Failed to disable AppInit injection\n");
+                return 1;
             }
         }
         else if (strcmp(argv[i], "--full-usermode") == 0) {
-            // 完整用户态伪装：注册表 + AppInit
-            printf("Applying full usermode spoof...\n");
-            if (hwid_apply_registry_global(config) == 0) {
-                printf("  Registry: OK\n");
-            }
-            char dll_path[MAX_PATH];
-            GetModuleFileNameA(NULL, dll_path, MAX_PATH);
-            char* p = strrchr(dll_path, '\\');
-            if (p) strcpy(p + 1, "HWIDChanger.dll");
-            if (hwid_enable_appinit_injection(dll_path) == 0) {
-                printf("  AppInit: OK\n");
-            }
-            printf("Full usermode spoof enabled!\n");
+            fprintf(stderr, "[UNAVAILABLE] Full-system BIOS/board/disk interception is not implemented.\n");
+            fprintf(stderr, "No registry or AppInit settings were changed.\n");
+            return 2;
         }
         else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             printf("HWID Changer v%s\n\n", HWID_VERSION);
             printf("Usage: %s [options]\n\n", argv[0]);
             printf("Options:\n");
             printf("  -r, --random           Generate random HWID\n");
-            printf("  -a, --apply            Apply spoof to current process\n");
-            printf("  -d, --driver           Load kernel driver\n");
-            printf("  -p, --pid <PID>        Inject into process by PID\n");
-            printf("  -n, --name <NAME>      Inject into process by name\n");
+            printf("  -a, --apply            Unavailable: native spoofing unverified\n");
+            printf("  -d, --driver           Not available in this build\n");
+            printf("  -p, --pid <PID>        Unavailable: remote injection unverified\n");
+            printf("  -n, --name <NAME>      Unavailable: remote injection unverified\n");
             printf("  -c, --config <FILE>    Load config from file\n");
             printf("  -s, --save <FILE>      Save config to file\n");
             printf("  -q, --quiet            Quiet mode\n");
             printf("  -h, --help             Show this help\n");
+            printf("  --show-hardware        Read-only Windows hardware report\n");
+            printf("  --native-readback      Read SMBIOS type 1/2 and disk serial via native APIs\n");
+            printf("  --vm-preview <IMAGE>    Preview guest serials from current HWID config\n");
+            printf("  --vm-run <IMAGE>        Boot QEMU guest using current HWID config serials\n");
+            printf("  --mac-apply            Apply temporary MAC override in Windows Sandbox\n");
+            printf("  --mac-restore          Restore the saved original MAC in Sandbox\n");
+            printf("  --mac-status           Display current MAC override status\n");
+            printf("  --mac-test             Apply, verify, and immediately restore MAC\n");
             printf("\nGlobal Mode (affects ALL programs):\n");
-            printf("  --enable-global        Enable global interception (kernel driver)\n");
-            printf("  --disable-global       Disable global interception\n");
+            printf("  --enable-global        Not available (unvalidated driver)\n");
+            printf("  --disable-global       Not available (unvalidated driver)\n");
             printf("  --registry-global      Modify system registry (permanent)\n");
             printf("  --restore-registry     Restore original registry values\n");
             printf("\nUsermode Full System Spoof:\n");
-            printf("  --full-usermode        Apply registry + AppInit (recommended)\n");
-            printf("  --enable-appinit       Enable AppInit DLL injection\n");
+            printf("  --full-usermode        Unavailable: global interception unverified\n");
+            printf("  --enable-appinit       Unavailable: unsafe DLL injection disabled\n");
             printf("  --disable-appinit      Disable AppInit DLL injection\n");
             return 0;
         }
@@ -290,63 +361,25 @@ static int run_interactive(HwidConfig* config) {
                 set_color(COLOR_DEFAULT);
                 break;
                 
-            case 2:  // 应用伪装
-                set_color(COLOR_YELLOW);
-                printf("\n  Applying spoof...\n");
-                set_color(COLOR_DEFAULT);
-                if (hwid_apply(config, MODE_AUTO) == 0) {
-                    set_color(COLOR_GREEN);
-                    printf("  [OK] Spoof applied successfully!\n");
-                } else {
-                    set_color(COLOR_RED);
-                    printf("  [ERROR] Failed to apply spoof\n");
-                }
+            case 2:
+                set_color(COLOR_RED);
+                printf("\n  [NOT IMPLEMENTED] Native BIOS, motherboard and disk spoofing is unavailable.\n");
+                printf("  No hardware values have been changed by this command.\n");
                 set_color(COLOR_DEFAULT);
                 break;
-                
-            case 3:  // 加载驱动
-                set_color(COLOR_YELLOW);
-                printf("\n  Loading kernel driver...\n");
-                set_color(COLOR_DEFAULT);
-                if (hwid_load_driver() == 0) {
-                    hwid_driver_set_config(config);
-                    set_color(COLOR_GREEN);
-                    printf("  [OK] Driver loaded and configured!\n");
-                } else {
-                    set_color(COLOR_RED);
-                    printf("  [ERROR] Failed to load driver (need admin rights and test mode)\n");
-                }
-                set_color(COLOR_DEFAULT);
+
+            case 3:
+                printf("\n  [UNAVAILABLE] Kernel driver is not included or validated.\n");
+                printf("  Do not enable Windows test signing for this build.\n");
                 break;
                 
-            case 4: {  // 注入进程
-                char name[128];
-                printf("\n  Enter process name or PID: ");
-                scanf("%127s", name);
-                
-                DWORD pid = atoi(name);
-                if (pid == 0) {
-                    pid = get_pid_by_name(name);
-                }
-                
-                if (pid == 0) {
-                    set_color(COLOR_RED);
-                    printf("  [ERROR] Process not found\n");
-                } else {
-                    set_color(COLOR_YELLOW);
-                    printf("  Injecting into PID %d...\n", pid);
-                    if (hwid_inject_process(pid, config) == 0) {
-                        set_color(COLOR_GREEN);
-                        printf("  [OK] Injected successfully!\n");
-                    } else {
-                        set_color(COLOR_RED);
-                        printf("  [ERROR] Injection failed\n");
-                    }
-                }
+            case 4:
+                set_color(COLOR_RED);
+                printf("\n  [UNAVAILABLE] Remote process injection has not been validated.\n");
+                printf("  No changes were applied.\n");
                 set_color(COLOR_DEFAULT);
                 break;
-            }
-                
+
             case 5:  // 显示真实硬件信息
                 show_real_hwid();
                 break;
@@ -383,50 +416,27 @@ static int run_interactive(HwidConfig* config) {
                 break;
             }
                 
-            case 8: {  // 全局模式
-                set_color(COLOR_YELLOW);
-                printf("\n  === GLOBAL MODE ===\n");
-                printf("  This will affect ALL programs on the system.\n");
-                printf("  Requires: Admin rights + Kernel driver + Test signing mode\n\n");
-                set_color(COLOR_DEFAULT);
-                
-                printf("  Continue? [Y/N]: ");
-                int confirm = _getch();
-                printf("%c\n", confirm);
-                
-                if (confirm == 'Y' || confirm == 'y') {
-                    set_color(COLOR_YELLOW);
-                    printf("\n  Enabling global mode...\n");
-                    set_color(COLOR_DEFAULT);
-                    
-                    // 先加载驱动
-                    if (hwid_load_driver() == 0) {
-                        hwid_driver_set_config(config);
-                        
-                        if (hwid_enable_global_mode(config) == 0) {
-                            set_color(COLOR_GREEN);
-                            printf("  [OK] Global mode ENABLED!\n");
-                            printf("  All programs will now see spoofed HWIDs.\n");
-                        } else {
-                            set_color(COLOR_RED);
-                            printf("  [ERROR] Failed to enable global mode\n");
-                        }
-                    } else {
-                        set_color(COLOR_RED);
-                        printf("  [ERROR] Failed to load driver\n");
-                        printf("  Make sure test signing is enabled:\n");
-                        printf("    bcdedit /set testsigning on\n");
-                    }
-                }
-                set_color(COLOR_DEFAULT);
+            case 8: {
+                printf("\n  MAC override / recovery - Windows Sandbox only.\n");
+                printf("  [A] Apply  [R] Restore original  [T] Test and restore  [S] Status\n");
+                printf("  Choose action: ");
+                int action=_getch();
+                printf("%c\n",action);
+                const char* operation=NULL;
+                if (action=='A' || action=='a') operation="-Action Apply";
+                else if (action=='R' || action=='r') operation="-Action Restore";
+                else if (action=='T' || action=='t') operation="-Action Test";
+                else if (action=='S' || action=='s') operation="-Action Status";
+                if (operation && run_companion_script("MacOverride.ps1",operation)!=0)
+                    fprintf(stderr,"  [ERROR] MAC action failed. Check backup/driver support.\n");
                 break;
             }
-            
+
             case 9: {  // 注册表修改
                 set_color(COLOR_YELLOW);
                 printf("\n  === REGISTRY MODIFICATION ===\n");
                 printf("  This will permanently modify system registry values.\n");
-                printf("  Affects: MachineGuid, ProductId, ComputerName, MAC addresses\n\n");
+                printf("  Affects: MachineGuid, ProductId, ComputerName registry values ONLY\n\n");
                 set_color(COLOR_DEFAULT);
                 
                 printf("  Continue? [Y/N]: ");

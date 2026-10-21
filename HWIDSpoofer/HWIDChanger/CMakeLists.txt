@@ -1,55 +1,37 @@
 cmake_minimum_required(VERSION 3.16)
-project(HWIDChanger C)
+project(HWIDChanger VERSION 2.0.0 LANGUAGES C)
+if(NOT WIN32)
+    message(FATAL_ERROR "HWIDChanger v2 requires Windows.")
+endif()
+# The current hook implementation uses GCC statement expressions.
+if(NOT CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    message(FATAL_ERROR "HWIDChanger v2 requires MinGW-w64 GCC (not MSVC).")
+endif()
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CHANGER_COMMON_SOURCES
+    hwid_core.c hwid_hooks.c hwid_readback.c registry_spoof.c appinit_spoof.c)
+add_executable(HWIDChanger main.c ${CHANGER_COMMON_SOURCES})
+target_compile_definitions(HWIDChanger PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(HWIDChanger PRIVATE -Wall -Wextra)
+target_link_libraries(HWIDChanger PRIVATE kernel32 advapi32 iphlpapi user32)
+add_library(HWIDChangerHook SHARED hwid_dll.c)
+set_target_properties(HWIDChangerHook PROPERTIES OUTPUT_NAME "HWIDChanger" PREFIX "")
+target_link_libraries(HWIDChangerHook PRIVATE kernel32 advapi32 iphlpapi)
+add_executable(HWIDTest hwid_test.c hwid_readback.c)
+target_link_libraries(HWIDTest PRIVATE kernel32 advapi32 iphlpapi)
 
-# 使用静态运行时库（减少依赖）
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+# Build and register the standalone read-only parser tests.
+enable_testing()
+add_subdirectory(tests)
+install(TARGETS HWIDChanger HWIDChangerHook HWIDTest
+    RUNTIME DESTINATION bin LIBRARY DESTINATION bin)
 
-# 优化选项
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /O2 /GL /GS- /Gy")
-set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG /OPT:REF /OPT:ICF")
-
-# 定义
-add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX -D_CRT_SECURE_NO_WARNINGS)
-
-# 源文件
-set(SOURCES
-    main.c
-    hwid_core.c
-    hwid_hooks.c
-)
-
-# 主可执行文件
-add_executable(HWIDChanger ${SOURCES})
-
-target_link_libraries(HWIDChanger PRIVATE
-    kernel32
-    advapi32
-    iphlpapi
-)
-
-# 设置为控制台程序
-set_target_properties(HWIDChanger PROPERTIES
-    WIN32_EXECUTABLE FALSE
-    OUTPUT_NAME "HWIDChanger"
-)
-
-# 安装
-install(TARGETS HWIDChanger RUNTIME DESTINATION bin)
-
-# 驱动项目（需要WDK，单独构建）
-message(STATUS "
-================================================================================
-  HWIDChanger - 构建说明
-================================================================================
-  
-  用户态程序:
-    cmake --build . --config Release
-  
-  内核驱动 (需要WDK):
-    cd driver
-    使用Visual Studio + WDK构建
-  
-  或使用提供的build.bat一键构建
-================================================================================
-")
-
+# Both PowerShell helpers are Windows inbox dependencies for the console UI.
+foreach(HELPER Verify-HWID.ps1 MacOverride.ps1 VirtualHardwareProfile.ps1 Verify-VirtualHardwareGuest.ps1)
+    add_custom_command(TARGET HWIDChanger POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/${HELPER}"
+        "$<TARGET_FILE_DIR:HWIDChanger>/${HELPER}")
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/tools/${HELPER}" DESTINATION bin)
+endforeach()

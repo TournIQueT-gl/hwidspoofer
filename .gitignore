@@ -1,0 +1,18 @@
+# Never publish original hardware identifiers or backups.
+**/hwid_backup.dat
+**/hwid_appinit_backup.dat
+**/hwid_current.cfg
+**/*.tmp.*
+
+# Generated build output (does not untrack previously committed files).
+**/build/
+**/build-*/
+**/obj/
+**/bin/
+*.obj
+*.pdb
+*.ilk
+*.log
+.vs/
+CMakeCache.txt
+CMakeFiles/

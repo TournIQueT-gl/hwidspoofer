@@ -1,0 +1,125 @@
+name: Hardware readback and VM profile validation
+on:
+  push:
+    branches:
+      - fix/build-and-recovery-2026-10-21
+  pull_request:
+    paths:
+      - 'HWIDSpoofer/HWIDChanger/hwid_hooks.c'
+      - 'HWIDSpoofer/HWIDChanger/main.c'
+      - 'HWIDSpoofer/HWIDChanger/hwid_changer.h'
+      - 'HWIDSpoofer/HWIDChanger/build.bat'
+      - 'HWIDSpoofer/HWIDChanger/CMakeLists.txt'
+      - 'HWIDSpoofer/HWIDChanger/hwid_readback.c'
+      - 'HWIDSpoofer/HWIDChanger/hwid_readback.h'
+      - 'HWIDSpoofer/HWIDChanger/tests/**'
+      - 'HWIDSpoofer/HWIDChanger/tools/VirtualHardwareProfile.ps1'
+      - '.github/workflows/hardware-profile-validation.yml'
+
+jobs:
+  readback-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure read-only parser test project
+        run: cmake -S HWIDSpoofer/HWIDChanger/tests -B build-readback -DCMAKE_BUILD_TYPE=Debug
+      - name: Compile
+        run: cmake --build build-readback -j 2
+      - name: Run parser and malformed-response tests
+        run: ctest --test-dir build-readback --output-on-failure
+
+  guest-profile-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preview guest hardware profile without launching QEMU
+        shell: powershell
+        run: '& "HWIDSpoofer/HWIDChanger/tests/Test-VirtualHardwareProfile.ps1"'
+
+  build-v2-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MinGW-w64 GCC using MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: mingw-w64-ucrt-x86_64-gcc
+      - name: Compile EXE, DLL, hardware reader and bundled helpers
+        shell: cmd
+        run: |
+          set "PATH=C:\msys64\ucrt64\bin;%PATH%"
+          cd /d HWIDSpoofer\HWIDChanger
+          call build.bat
+      - name: Verify safe DLL load without automatic interception
+        shell: powershell
+        run: |
+          $dll=[System.IO.Path]::GetFullPath('HWIDSpoofer/HWIDChanger/bin/HWIDChanger.dll')
+          Add-Type -TypeDefinition @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class HwidSafeLoader {
+            [DllImport("kernel32.dll", EntryPoint="LoadLibraryW", CharSet=CharSet.Unicode, SetLastError=true)]
+            public static extern IntPtr Load(string path);
+            [DllImport("kernel32.dll", EntryPoint="FreeLibrary", SetLastError=true)]
+            public static extern bool Unload(IntPtr module);
+          }
+          '@
+          $handle=[HwidSafeLoader]::Load($dll)
+          if ($handle -eq [IntPtr]::Zero) { throw 'HWID DLL LoadLibraryW failed.' }
+          if (-not [HwidSafeLoader]::Unload($handle)) { throw 'HWID DLL FreeLibrary failed.' }
+          Write-Host 'PASS: HWID DLL loads and unloads without activating legacy API hooks.'
+      - name: Verify guest-only VM mode is exposed
+        shell: powershell
+        run: |
+          $exe='HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe'
+          $helpText=(& $exe --help) -join "`n"
+          if ($LASTEXITCODE -ne 0 -or -not $helpText.Contains('--vm-preview') -or -not $helpText.Contains('--vm-run')) {
+            throw 'VM guest profile commands missing in EXE.'
+          }
+      - name: Preview hardware serials from new executable
+        shell: powershell
+        run: |
+          & 'HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe' --vm-preview 'C:\VirtualLab\guest.qcow2'
+          if ($LASTEXITCODE -ne 0) { throw 'HWIDChanger virtual guest preview failed.' }
+      - name: Check native BIOS, board and storage readers
+        shell: powershell
+        run: |
+          $exe='HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe'
+          $report=(& $exe --native-readback) -join "`n"
+          if ($LASTEXITCODE -ne 0) { throw 'Native hardware readback exited with error.' }
+          foreach ($field in @('SMBIOS system serial', 'SMBIOS board serial', 'Storage device serial')) {
+            if (-not $report.Contains($field)) { throw ('Missing hardware readback: '+$field) }
+          }
+          Write-Host 'Native readback path completed; serial values omitted from CI logs.'
+      - name: Verify unsupported native spoof cannot falsely pass or change registry
+        shell: powershell
+        run: |
+          $exe='HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe'
+          $key='HKLM:\SOFTWARE\Microsoft\Cryptography'
+          $before=(Get-ItemProperty -Path $key -Name MachineGuid).MachineGuid
+          & $exe --apply
+          $code=$LASTEXITCODE
+          $after=(Get-ItemProperty -Path $key -Name MachineGuid).MachineGuid
+          if ($code -ne 2) { throw ('Unexpected native spoof exit code: '+$code) }
+          if ($before -ne $after) { throw 'Unsupported native spoof changed registry.' }
+          foreach ($unsupported in @('--full-usermode','--enable-appinit')) {
+            & $exe $unsupported
+            if ($LASTEXITCODE -ne 2) { throw ('Unexpected status from '+$unsupported+': '+$LASTEXITCODE) }
+            $current=(Get-ItemProperty -Path $key -Name MachineGuid).MachineGuid
+            if ($current -ne $before) { throw ('Registry changed on unavailable mode: '+$unsupported) }
+          }
+          Write-Host 'PASS: unavailable native and global spoof modes reject commands without registry changes.'
+          exit 0
+      - name: Verify repeatable saved guest identifiers
+        shell: powershell
+        run: |
+          $exe='HWIDSpoofer/HWIDChanger/bin/HWIDChanger.exe'
+          $profile=Join-Path $env:TEMP 'HWIDChanger-CI-VirtualLab.cfg'
+          & $exe -r -s $profile
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $profile)) { throw 'VM profile save failed.' }
+          & $exe --config $profile --vm-preview 'C:\VirtualLab\guest.qcow2'
+          if ($LASTEXITCODE -ne 0) { throw 'Saved VM profile could not be reloaded.' }
+          Remove-Item -LiteralPath $profile -Force
+
