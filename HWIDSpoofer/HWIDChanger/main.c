@@ -219,9 +219,25 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
                 fprintf(stderr, "Invalid VM guest image path.\n");
                 return 2;
             }
-            char arguments[MAX_PATH + 96];
-            int count = snprintf(arguments, sizeof(arguments), "-Image \"%s\" %s",
-                                 image, launch ? "-Run" : "");
+            // Only alphanumeric hardware-profile IDs may cross into PowerShell.
+            // -c/--config can load known identifiers before --vm-preview/--vm-run.
+            const char* ids[] = { config->bios_serial, config->board_serial,
+                                   config->disk_serial };
+            const size_t caps[] = { 30, 30, 20 };
+            const char* allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
+            for (int j = 0; j < 3; ++j) {
+                size_t length = strlen(ids[j]);
+                if (!length || length > caps[j] ||
+                    strspn(ids[j], allowed) != length) {
+                    fprintf(stderr, "Unsafe/unsupported guest hardware serial in configuration.\n");
+                    return 2;
+                }
+            }
+            char arguments[MAX_PATH + 256];
+            int count = snprintf(arguments, sizeof(arguments),
+                                 "-Image \"%s\" -SystemId %s -BoardId %s -DriveId %s %s",
+                                 image, config->bios_serial, config->board_serial,
+                                 config->disk_serial, launch ? "-Run" : "");
             if (count < 0 || (size_t)count >= sizeof(arguments)) return 2;
             if (run_companion_script("VirtualHardwareProfile.ps1", arguments) != 0) {
                 fprintf(stderr, "VM guest hardware profile action failed.\n");
@@ -322,8 +338,8 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             printf("  -q, --quiet            Quiet mode\n");
             printf("  -h, --help             Show this help\n");
             printf("  --show-hardware        Read-only Windows hardware report\n");
-            printf("  --vm-preview <IMAGE>    Preview isolated VM serial profile (guest only)\n");
-            printf("  --vm-run <IMAGE>        Boot isolated QEMU guest using configured serials\n");
+            printf("  --vm-preview <IMAGE>    Preview guest serials from current HWID config\n");
+            printf("  --vm-run <IMAGE>        Boot QEMU guest using current HWID config serials\n");
             printf("  --mac-apply            Apply temporary MAC override in Windows Sandbox\n");
             printf("  --mac-restore          Restore the saved original MAC in Sandbox\n");
             printf("  --mac-status           Display current MAC override status\n");
