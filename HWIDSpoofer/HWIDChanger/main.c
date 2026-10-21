@@ -206,6 +206,28 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             fprintf(stderr,"Kernel global mode is unavailable in this build.\n");
             return 2;
         }
+        else if (strcmp(argv[i], "--vm-preview") == 0 ||
+                 strcmp(argv[i], "--vm-run") == 0) {
+            int launch = strcmp(argv[i], "--vm-run") == 0;
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Missing VM guest disk image path.\n");
+                return 2;
+            }
+            const char* image = argv[++i];
+            if (strlen(image) > MAX_PATH - 80 || strchr(image, '"') ||
+                strchr(image, '\n') || strchr(image, '\r')) {
+                fprintf(stderr, "Invalid VM guest image path.\n");
+                return 2;
+            }
+            char arguments[MAX_PATH + 96];
+            int count = snprintf(arguments, sizeof(arguments), "-Image \"%s\" %s",
+                                 image, launch ? "-Run" : "");
+            if (count < 0 || (size_t)count >= sizeof(arguments)) return 2;
+            if (run_companion_script("VirtualHardwareProfile.ps1", arguments) != 0) {
+                fprintf(stderr, "VM guest hardware profile action failed.\n");
+                return 1;
+            }
+        }
         else if (strcmp(argv[i], "--mac-apply") == 0) {
             if (run_companion_script("MacOverride.ps1","-Action Apply") != 0) return 1;
         }
@@ -300,6 +322,8 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             printf("  -q, --quiet            Quiet mode\n");
             printf("  -h, --help             Show this help\n");
             printf("  --show-hardware        Read-only Windows hardware report\n");
+            printf("  --vm-preview <IMAGE>    Preview isolated VM serial profile (guest only)\n");
+            printf("  --vm-run <IMAGE>        Boot isolated QEMU guest using configured serials\n");
             printf("  --mac-apply            Apply temporary MAC override in Windows Sandbox\n");
             printf("  --mac-restore          Restore the saved original MAC in Sandbox\n");
             printf("  --mac-status           Display current MAC override status\n");
