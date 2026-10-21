@@ -186,6 +186,7 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
                 printf("Config loaded from %s\n", argv[i]);
             } else {
                 printf("Failed to load config\n");
+                return 1;
             }
         }
         else if ((strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--save") == 0) && i + 1 < argc) {
@@ -193,6 +194,7 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
                 printf("Config saved to %s\n", argv[i]);
             } else {
                 printf("Failed to save config\n");
+                return 1;
             }
         }
         else if (strcmp(argv[i], "-q") == 0 || strcmp(argv[i], "--quiet") == 0) {
