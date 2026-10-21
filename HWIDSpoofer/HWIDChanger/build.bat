@@ -9,29 +9,32 @@ if errorlevel 1 (
 )
 if not exist "%BIN%" mkdir "%BIN%"
 
-echo [1/4] Building HWIDChanger.exe...
+rem This supported build does not publish the unvalidated legacy injection DLL.
+if exist "%BIN%\HWIDChanger.dll" (
+    echo [CLEAN] Removing obsolete legacy injection DLL from output folder...
+    del /f /q "%BIN%\HWIDChanger.dll"
+    if exist "%BIN%\HWIDChanger.dll" exit /b 1
+)
+
+echo [1/3] Building HWIDChanger.exe with read-only native backend...
 gcc -O2 -s -static -ffunction-sections -fdata-sections "-Wl,--gc-sections" ^
     -o "%BIN%\HWIDChanger.exe" ^
-    main.c hwid_core.c hwid_hooks.c hwid_readback.c registry_spoof.c appinit_spoof.c ^
+    main.c hwid_core.c hwid_readers_win.c hwid_backend_unavailable.c ^
+    hwid_readback.c registry_spoof.c appinit_spoof.c ^
     -liphlpapi -ladvapi32 -luser32
 if errorlevel 1 exit /b 1
 
-echo [2/4] Building HWIDChanger.dll...
-gcc -O2 -s -shared -static -ffunction-sections -fdata-sections "-Wl,--gc-sections" ^
-    -o "%BIN%\HWIDChanger.dll" hwid_dll.c -liphlpapi -ladvapi32
-if errorlevel 1 exit /b 1
-
-echo [3/4] Building read-only HWIDTest.exe...
+echo [2/3] Building read-only HWIDTest.exe...
 gcc -O2 -s -static -o "%BIN%\HWIDTest.exe" hwid_test.c hwid_readback.c -liphlpapi -ladvapi32
 if errorlevel 1 exit /b 1
 
-for %%F in (HWIDChanger.exe HWIDChanger.dll HWIDTest.exe) do (
+for %%F in (HWIDChanger.exe HWIDTest.exe) do (
     if not exist "%BIN%\%%F" (
         echo [ERROR] Missing required release artifact: %%F
         exit /b 1
     )
 )
-echo [4/4] Bundling read-only verification and Sandbox MAC recovery scripts...
+echo [3/3] Bundling verification, recovery and isolated-guest tools...
 for %%F in (Verify-HWID.ps1 MacOverride.ps1 VirtualHardwareProfile.ps1 Verify-VirtualHardwareGuest.ps1) do (
     if not exist "tools\%%F" (
         echo [ERROR] Missing companion script: %%F
@@ -53,5 +56,5 @@ echo [TEST] Guest hardware profile command-line preview...
 powershell -NoProfile -ExecutionPolicy Bypass -File "tests\Test-VirtualHardwareProfile.ps1"
 if errorlevel 1 exit /b 1
 
-echo [OK] v2.0 build completed.
+echo [OK] Supported v2.0 build completed; unsafe native interception remains unavailable.
 exit /b 0
