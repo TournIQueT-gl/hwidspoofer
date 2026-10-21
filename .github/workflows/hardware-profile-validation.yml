@@ -1,0 +1,32 @@
+name: Hardware readback and VM profile validation
+on:
+  push:
+    branches:
+      - fix/build-and-recovery-2026-10-21
+  pull_request:
+    paths:
+      - 'HWIDSpoofer/HWIDChanger/hwid_readback.c'
+      - 'HWIDSpoofer/HWIDChanger/hwid_readback.h'
+      - 'HWIDSpoofer/HWIDChanger/tests/**'
+      - 'HWIDSpoofer/HWIDChanger/tools/VirtualHardwareProfile.ps1'
+      - '.github/workflows/hardware-profile-validation.yml'
+
+jobs:
+  readback-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure read-only parser test project
+        run: cmake -S HWIDSpoofer/HWIDChanger/tests -B build-readback -DCMAKE_BUILD_TYPE=Debug
+      - name: Compile
+        run: cmake --build build-readback -j 2
+      - name: Run parser and malformed-response tests
+        run: ctest --test-dir build-readback --output-on-failure
+
+  guest-profile-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preview guest hardware profile without launching QEMU
+        shell: powershell
+        run: '& "HWIDSpoofer/HWIDChanger/tests/Test-VirtualHardwareProfile.ps1"'
