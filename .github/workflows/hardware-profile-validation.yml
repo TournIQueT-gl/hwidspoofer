@@ -58,7 +58,7 @@ jobs:
         shell: powershell
         run: |
           $env:PATH="C:\msys64\ucrt64\bin;$env:PATH"
-          $gcc=(Get-Command gcc.exe -CommandType Application -ErrorAction Stop).Source
+          $gcc=(Get-Command gcc.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
           Write-Host ('Using compiler: '+$gcc)
           cmake -S HWIDSpoofer/HWIDChanger -B cmake-supported -G Ninja "-DCMAKE_C_COMPILER=$gcc"
           if ($LASTEXITCODE -ne 0) { throw 'CMake configuration failed.' }
