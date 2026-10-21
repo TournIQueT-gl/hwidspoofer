@@ -10,7 +10,7 @@ endif()
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CHANGER_COMMON_SOURCES
-    hwid_core.c hwid_hooks.c registry_spoof.c appinit_spoof.c)
+    hwid_core.c hwid_hooks.c hwid_readback.c registry_spoof.c appinit_spoof.c)
 add_executable(HWIDChanger main.c ${CHANGER_COMMON_SOURCES})
 target_compile_definitions(HWIDChanger PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(HWIDChanger PRIVATE -Wall -Wextra)
