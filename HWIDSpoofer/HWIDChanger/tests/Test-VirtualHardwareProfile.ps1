@@ -2,7 +2,8 @@
 $ErrorActionPreference='Stop'
 $scriptPath=Join-Path $PSScriptRoot '..\tools\VirtualHardwareProfile.ps1'
 if (-not (Test-Path -LiteralPath $scriptPath)) { throw 'VirtualHardwareProfile.ps1 missing.' }
-$preview=@(& $scriptPath -Image 'C:\VirtualLab\guest.qcow2' -SystemId 'SYS-1' -BoardId 'BOARD-1' -DriveId 'DISK-1') -join [Environment]::NewLine
+$fakeImage=[System.IO.Path]::Combine([System.IO.Path]::GetTempPath(),'virtual-hardware-guest.qcow2')
+$preview=@(& $scriptPath -Image $fakeImage -SystemId 'SYS-1' -BoardId 'BOARD-1' -DriveId 'DISK-1') -join [Environment]::NewLine
 foreach ($fragment in @(
   'SYS-1', 'BOARD-1', 'DISK-1',
   'type=1,serial=SYS-1', 'type=2,serial=BOARD-1',
