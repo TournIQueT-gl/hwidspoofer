@@ -60,7 +60,7 @@ static void print_menu(void) {
     printf("  [1] Generate random HWID\n");
     printf("  [2] Native BIOS/board/disk spoof (not available)\n");
     printf("  [3] Kernel driver (not available)\n");
-    printf("  [4] Process injection (experimental)\n");
+    printf("  [4] Remote process injection (not available)\n");
     printf("  [5] Show real hardware info\n");
     printf("  [6] Load config from file\n");
     printf("  [7] Save config to file\n");
@@ -180,22 +180,11 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             fprintf(stderr,"Kernel driver mode is unavailable: no validated driver is bundled.\n");
             return 2;
         }
-        else if ((strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--pid") == 0) && i + 1 < argc) {
-            DWORD pid = atoi(argv[++i]);
-            if (hwid_inject_process(pid, config) == 0) {
-                printf("Injected into PID %d\n", pid);
-            } else {
-                printf("Failed to inject\n");
-                return 1;
-            }
-        }
-        else if ((strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--name") == 0) && i + 1 < argc) {
-            if (hwid_inject_by_name(argv[++i], config) == 0) {
-                printf("Injected into %s\n", argv[i]);
-            } else {
-                printf("Failed to inject\n");
-                return 1;
-            }
+        else if (strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--pid") == 0 ||
+                 strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--name") == 0) {
+            fprintf(stderr, "[UNAVAILABLE] Remote process injection is not validated and is disabled.\n");
+            fprintf(stderr, "No process was injected or modified.\n");
+            return 2;
         }
         else if ((strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--config") == 0) && i + 1 < argc) {
             if (hwid_load_config(argv[++i], config) == 0) {
@@ -321,8 +310,8 @@ static int run_cli(int argc, char* argv[], HwidConfig* config) {
             printf("  -r, --random           Generate random HWID\n");
             printf("  -a, --apply            Unavailable: native spoofing unverified\n");
             printf("  -d, --driver           Not available in this build\n");
-            printf("  -p, --pid <PID>        Inject into process by PID\n");
-            printf("  -n, --name <NAME>      Inject into process by name\n");
+            printf("  -p, --pid <PID>        Unavailable: remote injection unverified\n");
+            printf("  -n, --name <NAME>      Unavailable: remote injection unverified\n");
             printf("  -c, --config <FILE>    Load config from file\n");
             printf("  -s, --save <FILE>      Save config to file\n");
             printf("  -q, --quiet            Quiet mode\n");
@@ -384,34 +373,13 @@ static int run_interactive(HwidConfig* config) {
                 printf("  Do not enable Windows test signing for this build.\n");
                 break;
                 
-            case 4: {  // 注入进程
-                char name[128];
-                printf("\n  Enter process name or PID: ");
-                scanf("%127s", name);
-                
-                DWORD pid = atoi(name);
-                if (pid == 0) {
-                    pid = get_pid_by_name(name);
-                }
-                
-                if (pid == 0) {
-                    set_color(COLOR_RED);
-                    printf("  [ERROR] Process not found\n");
-                } else {
-                    set_color(COLOR_YELLOW);
-                    printf("  Injecting into PID %d...\n", pid);
-                    if (hwid_inject_process(pid, config) == 0) {
-                        set_color(COLOR_GREEN);
-                        printf("  [OK] Injected successfully!\n");
-                    } else {
-                        set_color(COLOR_RED);
-                        printf("  [ERROR] Injection failed\n");
-                    }
-                }
+            case 4:
+                set_color(COLOR_RED);
+                printf("\n  [UNAVAILABLE] Remote process injection has not been validated.\n");
+                printf("  No changes were applied.\n");
                 set_color(COLOR_DEFAULT);
                 break;
-            }
-                
+
             case 5:  // 显示真实硬件信息
                 show_real_hwid();
                 break;
