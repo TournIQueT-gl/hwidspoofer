@@ -52,6 +52,24 @@ jobs:
           set "PATH=C:\msys64\ucrt64\bin;%PATH%"
           cd /d HWIDSpoofer\HWIDChanger
           call build.bat
+      - name: Verify safe DLL load without automatic interception
+        shell: powershell
+        run: |
+          $dll=[System.IO.Path]::GetFullPath('HWIDSpoofer/HWIDChanger/bin/HWIDChanger.dll')
+          Add-Type -TypeDefinition @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class HwidSafeLoader {
+            [DllImport("kernel32.dll", EntryPoint="LoadLibraryW", CharSet=CharSet.Unicode, SetLastError=true)]
+            public static extern IntPtr Load(string path);
+            [DllImport("kernel32.dll", SetLastError=true)]
+            public static extern bool Unload(IntPtr module);
+          }
+          '@
+          $handle=[HwidSafeLoader]::Load($dll)
+          if ($handle -eq [IntPtr]::Zero) { throw 'HWID DLL LoadLibraryW failed.' }
+          if (-not [HwidSafeLoader]::Unload($handle)) { throw 'HWID DLL FreeLibrary failed.' }
+          Write-Host 'PASS: HWID DLL loads and unloads without activating legacy API hooks.'
       - name: Verify guest-only VM mode is exposed
         shell: powershell
         run: |
